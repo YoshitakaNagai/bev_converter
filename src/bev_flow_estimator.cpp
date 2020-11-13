@@ -7,10 +7,7 @@ BEVFlowEstimator::BEVFlowEstimator(void)
     nh.param("GRID_NUM", GRID_NUM, {50});
     nh.param("Hz", Hz, {100.0});
     nh.param("FLOW_IMAGE_SIZE", FLOW_IMAGE_SIZE, {50});
-    nh.param("SAVE_NUMBER", SAVE_NUMBER, {1});
     nh.param("MANUAL_CROP_SIZE", MANUAL_CROP_SIZE, {5});
-    nh.param("PKG_PATH", PKG_PATH, {"/home/amsl/ros_catkin_ws/src/bev_converter/bev_img"});
-    nh.param("IS_SAVE_IMAGE", IS_SAVE_IMAGE, {false});
     nh.param("IS_DENSE", IS_SAVE_IMAGE, {false});
     nh.param("MAX_CORNERS", MAX_CORNERS, {20});
     nh.param("QUALITY_LEVEL", QUALITY_LEVEL, {0.05});
@@ -41,7 +38,6 @@ void BEVFlowEstimator::executor(void)
     formatter();
     BEVImageGenerator bev_image_generator(RANGE, GRID_NUM, MANUAL_CROP_SIZE, ROBOT_PARAM, FRAME_ID, CHILD_FRAME_ID);
     bev_image_generator.formatter();
-    int i = 0;
 
 	ros::Rate r(Hz);
 	while(ros::ok()){
@@ -66,14 +62,6 @@ void BEVFlowEstimator::executor(void)
                     occupancy_img_msg->header.seq = bev_seq;
                     occupancy_image_publisher.publish(occupancy_img_msg);
 
-					/* std::cout << "imshow" << std::endl; */
-					/* cv::namedWindow("cropped_transformed_grid_img", CV_WINDOW_AUTOSIZE); */
-					/* cv::imshow("cropped_transformed_grid_img", cropped_transformed_grid_img); */
-					/* cv::waitKey(1); */
-					/* cv::namedWindow("cropped_current_grid_img", CV_WINDOW_AUTOSIZE); */
-					/* cv::imshow("cropped_current_grid_img", cropped_current_grid_img); */
-					/* cv::waitKey(1); */
-
 					// bev_flow = flow_estimator(cropped_transformed_grid_img, cropped_current_grid_img);
 					bool flow_comp_flag = flow_estimator(cropped_transformed_grid_img, cropped_current_grid_img);
 					std::cout << "flow comp!" << std::endl;
@@ -89,11 +77,6 @@ void BEVFlowEstimator::executor(void)
 						}
 						bev_flow.convertTo(bev_flow, CV_8U, 255);
 
-						/* std::cout << "imshow" << std::endl; */
-						/* cv::namedWindow("bev_flow", CV_WINDOW_AUTOSIZE); */
-						/* cv::imshow("bev_flow", bev_flow); */
-						/* cv::waitKey(1); */
-
 						std::cout << "pub img" << std::endl;
 						cv::Mat flow_img;
 						bev_flow.copyTo(flow_img);
@@ -101,32 +84,6 @@ void BEVFlowEstimator::executor(void)
 						sensor_msgs::ImagePtr flow_img_msg = cv_bridge::CvImage(std_msgs::Header(), "rgb8", flow_img).toImageMsg();
 						flow_img_msg->header.seq = bev_seq;
 						flow_image_publisher.publish(flow_img_msg);
-						// step = 0;
-					
-
-						if(IS_SAVE_IMAGE){
-							std::vector<int> params(2);
-							// .png
-							const std::string folder_name = PKG_PATH + "/data_" + std::to_string(SAVE_NUMBER);
-							params[0] = CV_IMWRITE_PNG_COMPRESSION;
-							params[1] = 9;
-
-							struct stat statBuf;
-							if(stat(folder_name.c_str(), &statBuf) == 0){
-								std::cout << "exist dir" << std::endl;
-							}else{
-								std::cout << "mkdir" << std::endl;
-								if(mkdir(folder_name.c_str(), 0755) != 0){
-									std::cout << "mkdir error" << std::endl;
-								}
-							}
-							cv::imwrite(folder_name + "/" + "flow_" + std::to_string(i) + ".png", bev_flow, params);
-							/* std::cout << "SAVE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl; */
-							i++;
-						}else{
-							i = 0;
-						}
-
 						// flow_img.release();
 					}
 					// cropped_current_grid_img.release();
@@ -339,39 +296,24 @@ bool BEVFlowEstimator::flow_estimator(cv::Mat pre_img, cv::Mat cur_img)
 			size_t compare_features_num = 0;
 			if(pre_corners.size() > cur_corners.size()){
 				compare_features_num = cur_corners.size();
-				/* std::cout << "compare_features_num = " << compare_features_num << std::endl; */
 			}else if(pre_corners.size() <= cur_corners.size()){
 				compare_features_num = pre_corners.size();
-				/* std::cout << "compare_features_num = " << compare_features_num << std::endl; */
 			}else{
-				// std::cout << "compare_features_num = " << compare_features_num << std::endl;
 			}
 
 			cv::calcOpticalFlowPyrLK(pre_img, cur_img, pre_corners, cur_corners, features_found, features_errors);
 
-			// --memory bug zone---------------------------------------------------------------------
-			/* for(size_t i = 0; i < features_found.size(); i++){ */
-			/* for(size_t i = 0; i < features_errors.size(); i++){ */
 			for(size_t i = 0; i < compare_features_num; i++){
-				/* std::cout << "corners[" << i << "]" << std::endl; */
 				float flow_vector_x = (float)(cur_corners[i].x - pre_corners[i].x);
 				float flow_vector_y = -(float)(cur_corners[i].y - pre_corners[i].y);
 				if(cur_corners[i].x >= 0.0 && cur_corners[i].y >= 0.0){
-					/* flow_x.at<float>((int)cur_corners[i].x, (int)cur_corners[i].y) = flow_vector_x; */
-					/* flow_y.at<float>((int)cur_corners[i].x, (int)cur_corners[i].y) = flow_vector_y; */
 					flow_x.at<float>(cur_corners[i].x, cur_corners[i].y) = flow_vector_x;
 					flow_y.at<float>(cur_corners[i].x, cur_corners[i].y) = flow_vector_y;
-					/* std::cout << "pre_corners" << pre_corners[i] << std::endl; */
-					/* std::cout << "cur_corners" << cur_corners[i] << std::endl; */
-					/* std::cout << "flow_x(" << (int)cur_corners[i].x << ", " << (int)cur_corners[i].y << ")=\n" << flow_x << std::endl; */
-					/* std::cout << "flow_y(" << (int)cur_corners[i].x << ", " << (int)cur_corners[i].y << ")=\n" << flow_y << std::endl; */
 				}
 			}
-			// --memory bug zone-------------------------------------------------------------------------
 
 			std::cout << "calculated flow" << std::endl;
 
-			// cv::Mat magnitude, angle;
 			cv::Mat magnitude = cv::Mat::zeros(img_size, img_size, CV_32F);
 			cv::Mat angle = cv::Mat::zeros(img_size, img_size, CV_32F);
 			std::cout << "cartToPolar" << std::endl;
@@ -394,18 +336,13 @@ bool BEVFlowEstimator::flow_estimator(cv::Mat pre_img, cv::Mat cur_img)
 			cv::cvtColor(hsv, flow_bgr, cv::COLOR_HSV2BGR);
 
 			/* magnitude.release(); */
-			/* std::cout << "magnitude.release()" << std::endl; */
 			/* angle.release(); */
-			/* std::cout << "angle.release()" << std::endl; */
 			/* hsv_planes[0].release(); */
 			/* hsv_planes[1].release(); */
 			/* hsv_planes[2].release(); */
-			/* std::cout << "hsv_plane.release()" << std::endl; */
 			/* hsv.release(); */
-			/* std::cout << "hsv.release()" << std::endl; */
 			/* features_found.clear(); */
 			/* features_errors.clear(); */
-			/* std::cout << "features cleared" << std::endl; */
 		}
 	}
 	
