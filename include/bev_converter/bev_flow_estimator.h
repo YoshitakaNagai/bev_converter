@@ -14,6 +14,7 @@
 #include <opencv2/superres/optical_flow.hpp>
 #include <opencv2/core/base.hpp>
 #include <opencv2/core/types.hpp>
+#include <opencv2/core/core.hpp>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>

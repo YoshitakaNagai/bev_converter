@@ -24,6 +24,8 @@
 
 	<!-- <node pkg="bev_converter" type="ground_truth_odom_publisher" name="ground_truth_odom_publisher"> -->
 	<!-- </node> -->
+	<node pkg="bev_converter" type="raycast_publisher" name="raycast_publisher" output="screen">
+	</node>
 
 	<node pkg="bev_converter" type="bev_converter" name="bev_converter">
 		<param name="RANGE" value="$(arg range)" type="double"/>
