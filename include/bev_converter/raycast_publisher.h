@@ -81,6 +81,7 @@ class RaycastPublisher
 		
 		std::vector<Cast> ray_list;
 		std::vector<std::vector<Cast> > precast_grid;
+		std::vector<std::vector<bool> > is_hit_grid;
 };
 
 #endif// __RAYCAST_PUBLISHER_H
