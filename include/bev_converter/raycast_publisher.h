@@ -34,10 +34,19 @@ class RaycastPublisher
 		typedef pcl::PointXYZI PointI;
 		typedef pcl::PointCloud<PointI> PointCloudI;
 		typedef pcl::PointCloud<PointI>::Ptr PointCloudIPtr;
+		typedef struct RowCol{
+			int row;
+			int col;
+		}ROW_COL;
 		typedef struct Cast{
 			int angle_id;
 			float range;
 		}CAST;
+		typedef struct RayData{
+			Cast cast;
+			bool is_check;
+			std::vector<RowCol> index2d_list;
+		}RAY_DATA;
 
 		RaycastPublisher(void);
 
@@ -47,7 +56,7 @@ class RaycastPublisher
 		void laserscan_callback(const sensor_msgs::LaserScanConstPtr&);
 		void pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr&);
 		void precast(void);
-		int get_angle_id(float&);
+		int get_angle_id(float);
 		float get_distance(float&, float&);
 		void ray_listup(bool);
 		void raycast(cv::Mat&);
@@ -79,7 +88,7 @@ class RaycastPublisher
 		PointCloudIPtr input_points {new PointCloudI};
 		// cv::Mat raycast_image32f;
 		
-		std::vector<Cast> ray_list;
+		std::vector<RayData> ray_list;
 		std::vector<std::vector<Cast> > precast_grid;
 		std::vector<std::vector<bool> > is_hit_grid;
 };

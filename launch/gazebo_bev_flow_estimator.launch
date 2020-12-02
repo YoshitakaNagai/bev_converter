@@ -28,7 +28,7 @@
 		<param name="WIDTH" value="$(arg range)" type="double"/>
 		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
 		<param name="Hz" value="$(arg hz)" type="double"/>
-		<param name="RAY_NUM" value="360" type="int"/>
+		<param name="RAY_NUM" value="180" type="int"/>
 		<param name="IS_USE_VELODYNE" value="true" type="bool"/>
 	</node>
 

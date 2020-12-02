@@ -19,7 +19,6 @@ RaycastPublisher::RaycastPublisher(void)
 
 void RaycastPublisher::executor(void)
 {
-	is_first = true;
 	formatter();
 	initializer();
 	ros::Rate r(Hz);
@@ -55,13 +54,18 @@ void RaycastPublisher::formatter(void)
 {
 	// std::cout << "formatter" << std::endl;
     dt = 1.0 / Hz;
-    grid_size = WIDTH / (double)GRID_NUM;
-	angle_resolution = 2 * M_PI / RAY_NUM;
+    grid_size = WIDTH / (float)GRID_NUM;
+	angle_resolution = 2 * M_PI / (float)RAY_NUM;
 	
 	Cast init_cast;
 	init_cast.angle_id = 0;
-	init_cast.range = 2 * WIDTH;
+	init_cast.range = 0.0;
 	std::vector<Cast> row_grid;
+	RayData init_ray;
+	init_ray.cast.angle_id = 0;
+	init_ray.cast.range = 0.0;
+	init_ray.is_check = false;
+	init_ray.index2d_list.resize(0);
 	for(int row = 0; row < GRID_NUM; row++){
 		row_grid.push_back(init_cast);
 	}
@@ -69,7 +73,7 @@ void RaycastPublisher::formatter(void)
 		precast_grid.push_back(row_grid);
 	}
 	for(int i = 0; i < RAY_NUM; i++){
-		ray_list.push_back(init_cast);
+		ray_list.push_back(init_ray);
 	}
 
 	precast();
@@ -95,8 +99,10 @@ void RaycastPublisher::initializer(void)
 		pointcloud_callback_flag = true;
 	}
 	input_points->points.clear();
-	for(auto& ray : ray_list){
-		ray.range = 2 * WIDTH;
+	for(int i = 0; i < RAY_NUM; i++){
+		ray_list[i].cast.range = 0.0;
+		ray_list[i].is_check = false;
+		// ray_list[i].index2d_list.clear();
 	}
 	for(int col = 0; col < GRID_NUM; col++){
 		for(int row = 0; row < GRID_NUM; row++){
@@ -129,32 +135,30 @@ void RaycastPublisher::precast(void)
 	// std::cout << "precast_grid" << std::endl;
 	for(int col = 0; col < GRID_NUM; col++){
 		for(int row = 0; row < GRID_NUM; row++){
-			// float relative_robotcs_x = -(iy * grid_size - 0.5 * WIDTH);
-			float relative_robotcs_x = 0.5 * WIDTH - col * grid_size;
-			float relative_robotcs_y = 0.5 * WIDTH - row * grid_size;
+			float relative_robotcs_x = 0.5 * WIDTH - ((float)col + 0.5) * grid_size;
+			float relative_robotcs_y = 0.5 * WIDTH - ((float)row + 0.5) * grid_size;
+			// float relative_robotcs_x = 0.5 * WIDTH - (float)col * grid_size;
+			// float relative_robotcs_y = 0.5 * WIDTH - (float)row * grid_size;
 			float relative_robotcs_angle = atan2(relative_robotcs_y, relative_robotcs_x);
 			precast_grid[row][col].angle_id = get_angle_id(relative_robotcs_angle);
 			precast_grid[row][col].range = get_distance(relative_robotcs_x, relative_robotcs_y);
+
+			int pcg_angle_id = precast_grid[row][col].angle_id;
+			RowCol grid;
+			grid.row = row;
+			grid.col = col;
+			ray_list[pcg_angle_id].index2d_list.push_back(grid);
 		}
 	}
 }
 
 
-int RaycastPublisher::get_angle_id(float& angle)
+int RaycastPublisher::get_angle_id(float angle)
 {
 	if(angle < 0){
 		angle += 2 * M_PI;
 	}
-
-	int return_angle_id = 0;
-	for(int angle_id = 0; angle_id < RAY_NUM; angle_id++){
-		float radian = angle_id * angle_resolution;
-		float next_radian = (angle_id + 1) * angle_resolution;
-		if(radian <= angle && angle < next_radian){
-			return_angle_id = angle_id;
-			break;
-		}
-	}
+	int return_angle_id = (int)std::floor(angle / angle_resolution);
 
 	return return_angle_id;
 }
@@ -169,21 +173,27 @@ float RaycastPublisher::get_distance(float& x, float& y)
 void RaycastPublisher::ray_listup(bool is_use_velodyne)
 {
 	// std::cout << "ray_listup" << std::endl;
+	std::vector<bool> is_first_ray(RAY_NUM, true);
 	if(is_use_velodyne){
 		for(auto& pt : input_points->points){
 			float pt_angle = atan2(pt.y, pt.x);
 			int pt_angle_id = get_angle_id(pt_angle);
 			float pt_range = get_distance(pt.x, pt.y);
-			if(ray_list[pt_angle_id].range > pt_range){
-				ray_list[pt_angle_id].range = pt_range;
+			if(is_first_ray[pt_angle_id]){
+				ray_list[pt_angle_id].cast.range = pt_range;
+				ray_list[pt_angle_id].is_check = true;
+				is_first_ray[pt_angle_id] = false;
+			}
+			if(ray_list[pt_angle_id].cast.range > pt_range){
+				ray_list[pt_angle_id].cast.range = pt_range;
 			}
 
 			float ray_robotcs_x = pt.x;
 			float ray_robotcs_y = pt.y;
 			float hit_gridcs_rowd = 0.5 * WIDTH - ray_robotcs_y;
 			float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
-			int hit_row = std::floor(hit_gridcs_rowd / grid_size);
-			int hit_col = std::floor(hit_gridcs_cold / grid_size);
+			int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
+			int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
 			if((0 < hit_row && hit_row < GRID_NUM) && (0 < hit_col && hit_col < GRID_NUM)){
 				is_hit_grid[hit_row][hit_col] = true;
 			}
@@ -194,14 +204,14 @@ void RaycastPublisher::ray_listup(bool is_use_velodyne)
 			if(isfinite(lasers.ranges[i])){
 				float laser_angle = lasers.angle_increment * i;
 				int laser_angle_id = get_angle_id(laser_angle);
-				ray_list[laser_angle_id].range = lasers.ranges[i];
+				ray_list[laser_angle_id].cast.range = lasers.ranges[i];
 
 				float ray_robotcs_x = lasers.ranges[i] * cos(laser_angle);
 				float ray_robotcs_y = lasers.ranges[i] * sin(laser_angle);
 				float hit_gridcs_rowd = 0.5 * WIDTH - ray_robotcs_y;
 				float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
-				int hit_row = std::floor(hit_gridcs_rowd / grid_size);
-				int hit_col = std::floor(hit_gridcs_cold / grid_size);
+				int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
+				int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
 				is_hit_grid[hit_row][hit_col] = true;
 			}
 		}
@@ -215,17 +225,43 @@ void RaycastPublisher::raycast(cv::Mat& image32f)
 	for(int col = 0; col < GRID_NUM; col++){
 		for(int row = 0; row < GRID_NUM; row++){
 			int pcg_angle_id = precast_grid[row][col].angle_id;
-			image32f.at<float>(row, col) = 0.5; // Initialize Unknown
-			if(precast_grid[row][col].range < ray_list[pcg_angle_id].range){
-				image32f.at<float>(row, col) = 0.0; // Unoccupied
+			image32f.at<float>(row, col) = 0.5; // Unknown
+			if(ray_list[pcg_angle_id].is_check){
+				if(precast_grid[row][col].range <= ray_list[pcg_angle_id].cast.range){
+					image32f.at<float>(row, col) = 0.0; // Unoccupied
+				}else if(precast_grid[row][col].range > ray_list[pcg_angle_id].cast.range){
+					image32f.at<float>(row, col) = 0.5; // Unknown
+				}
+				if(is_hit_grid[row][col]){
+					image32f.at<float>(row, col) = 1.0; // Occupied
+				}
 			}else{
-				image32f.at<float>(row, col) = 0.5; // Unknown
-			}
-			if(is_hit_grid[row][col]){
-				image32f.at<float>(row, col) = 1.0; // Occupied
+				std::cout << "pcg_angle_id : " << pcg_angle_id << std::endl;
 			}
 		}
 	}
+
+
+	// for(int i = 0; i < RAY_NUM; i++){
+	// 	int index2d_size = ray_list[i].index2d_list.size();
+	// 	for(int j = 0; j < index2d_size; j++){
+	// 		int row = ray_list[i].index2d_list[j].row;
+	// 		int col = ray_list[i].index2d_list[j].col;
+	// 		if(ray_list[i].cast.range < precast_grid[row][col].range){
+	// 			image32f.at<float>(row, col) = 0.5; // Unknown
+	// 		}else{
+	// 			image32f.at<float>(row, col) = 0.0; // Unoccupied
+	// 		}
+	// 	}
+	// }
+    //
+	// for(int col = 0; col < GRID_NUM; col++){
+	// 	for(int row = 0; row < GRID_NUM; row++){
+	// 		if(is_hit_grid[row][col]){
+	// 			image32f.at<float>(row, col) = 1.0; // Occupied
+	// 		}
+	// 	}
+	// }
 }
 
 
