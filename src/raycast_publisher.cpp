@@ -7,7 +7,7 @@ RaycastPublisher::RaycastPublisher(void)
     nh.param("WIDTH", WIDTH, {8.0});
     nh.param("GRID_NUM", GRID_NUM, {40});
     nh.param("Hz", Hz, {100.0});
-	nh.param("RAY_NUM", RAY_NUM, {360});
+	nh.param("RAY_NUM", RAY_NUM, {180});
 	nh.param("IS_USE_VELODYNE", IS_USE_VELODYNE, {true});
     // nh.param("");
 
@@ -28,11 +28,14 @@ void RaycastPublisher::executor(void)
 			cv::Mat raycast_image32f = cv::Mat::zeros(GRID_NUM, GRID_NUM, CV_32FC1);
 			raycast(raycast_image32f);
 			cv::Mat raycast_image8u;
-			raycast_image32f.convertTo(raycast_image8u, CV_8UC1, 255);
-			cv::rotate(raycast_image8u, raycast_image8u, cv::ROTATE_90_CLOCKWISE);
-			cv::flip(raycast_image8u, raycast_image8u, 1);
+			if(IS_USE_VELODYNE){
+				raycast_image32f.convertTo(raycast_image8u, CV_8UC1, 255);
+				cv::rotate(raycast_image8u, raycast_image8u, cv::ROTATE_90_CLOCKWISE);
+				cv::flip(raycast_image8u, raycast_image8u, 1);
+			}else{
+            	cv::rotate(raycast_image8u, raycast_image8u, cv::ROTATE_180);
+			}
 			// cv::rotate(raycast_image8u, raycast_image8u, cv::ROTATE_90_COUNTERCLOCKWISE);
-            // cv::rotate(raycast_image8u, raycast_image8u, cv::ROTATE_180);
 
 			sensor_msgs::ImagePtr raycast_image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", raycast_image8u).toImageMsg();
 			raycast_image_msg->header = header_initializer(IS_USE_VELODYNE);
@@ -202,17 +205,28 @@ void RaycastPublisher::ray_listup(bool is_use_velodyne)
 		int lasers_size = lasers.ranges.size();
 		for(int i = 0; i < lasers_size; i++){
 			if(isfinite(lasers.ranges[i])){
-				float laser_angle = lasers.angle_increment * i;
+				float laser_angle = lasers.angle_increment * (float)i;
 				int laser_angle_id = get_angle_id(laser_angle);
-				ray_list[laser_angle_id].cast.range = lasers.ranges[i];
 
-				float ray_robotcs_x = lasers.ranges[i] * cos(laser_angle);
-				float ray_robotcs_y = lasers.ranges[i] * sin(laser_angle);
-				float hit_gridcs_rowd = 0.5 * WIDTH - ray_robotcs_y;
-				float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
-				int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
-				int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
-				is_hit_grid[hit_row][hit_col] = true;
+				if(is_first_ray[laser_angle_id]){
+					ray_list[laser_angle_id].cast.range = lasers.ranges[i];
+					ray_list[laser_angle_id].is_check = true;
+					is_first_ray[laser_angle_id] = false;
+				}
+
+				if(0 <= laser_angle_id && laser_angle_id < RAY_NUM){
+					ray_list[laser_angle_id].cast.range = lasers.ranges[i];
+
+					float ray_robotcs_x = lasers.ranges[i] * cos(laser_angle);
+					float ray_robotcs_y = lasers.ranges[i] * sin(laser_angle);
+					float hit_gridcs_rowd = 0.5 * WIDTH - ray_robotcs_y;
+					float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
+					int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
+					int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
+					if((0 < hit_row && hit_row < GRID_NUM) && (0 < hit_col && hit_col < GRID_NUM)){
+						is_hit_grid[hit_row][hit_col] = true;
+					}
+				}
 			}
 		}
 	}
