@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- ros loop rate -->
+    <arg name="hz" default="100.0"/>
+	<!-- grid -->
+    <arg name="width" default="10.0"/>
+    <arg name="grid_num" default="50"/>
+	<!-- flow -->
+    <arg name="manual_crop_size" default="5"/>
+    <arg name="is_sparce" default="true"/>
+    <arg name="max_corners" default="20"/>
+    <arg name="quality_level" default="0.05"/>
+    <arg name="min_distance" default="5.0"/>
+    <arg name="win_size" default="10"/>
+    <arg name="max_count" default="5"/>
+    <arg name="min_human_velocity" default="0.0"/>
+    <arg name="max_human_velocity" default="1.0"/>
+	<!-- frame -->
+    <arg name="frame_id" default="odom"/>
+    <arg name="child_frame_id" default="base_footprint"/>
+	<!-- sim or bag -->
+    <!-- <arg name="is_gazebo" default="true"/> -->
+
+	<!-- dynamic_cloud_detector -->
+    <arg name="resolution" default="0.20"/>
+    <arg name="occupancy_threshold" default="0.3"/>
+    <arg name="beam_num" default="720"/>
+    <arg name="skip_scan_flag" default="false"/>
+
+
+	<param name="use_sim_time" value="false"/>
+
+	<!-- <node pkg="bev_converter" type="ground_truth_odom_publisher" name="ground_truth_odom_publisher"> -->
+	<!-- </node> -->
+	<node pkg="bev_converter" type="raycast_publisher" name="raycast_publisher" output="screen">
+		<!-- ros loop rate -->
+		<param name="Hz" value="$(arg hz)" type="double"/>
+		<!-- grid -->
+		<param name="WIDTH" value="$(arg width)" type="double"/>
+		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
+		<!-- ray number -->
+		<param name="RAY_NUM" value="180" type="int"/>
+		<!-- Velodyne or 2D LiDAR -->
+		<param name="IS_USE_VELODYNE" value="true" type="bool"/>
+	</node>
+
+	<node pkg="bev_converter" type="bev_flow_estimator_compact" name="bev_flow_estimator_compact" output="screen">
+		<!-- ros loop rate -->
+		<param name="Hz" value="$(arg hz)" type="double"/>
+		<!-- grid -->
+		<param name="WIDTH" value="$(arg width)" type="double"/>
+		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
+		<!-- flow -->
+		<param name="MANUAL_CROP_SIZE" value="$(arg manual_crop_size)" type="int"/>
+		<param name="IS_SPARCE" value="$(arg is_sparce)" type="bool"/>
+		<param name="MAX_CORNERS" value="$(arg max_corners)" type="int"/>
+		<param name="QUALITY_LEVEL" value="$(arg quality_level)" type="double"/>
+		<param name="MIN_DISTANCE" value="$(arg min_distance)" type="double"/>
+		<param name="WIN_SIZE" value="$(arg win_size)" type="int"/>
+		<param name="MAX_COUNT" value="$(arg max_count)" type="int"/>
+		<!-- frame -->
+		<param name="FRAME_ID" value="$(arg frame_id)" type="str"/>
+		<param name="CHILD_FRAME_ID" value="$(arg child_frame_id)" type="str"/>
+		<!-- gazebo -->
+		<param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/>
+
+        <!-- <rosparam command="load" file="$(find cats)/config/cats_motion_param.yaml"/> -->
+		<!-- <remap from="/odom" to="/ground_truth/odom"/> -->
+	</node>
+
+
+    <node pkg="dynamic_cloud_detector" type="dynamic_cloud_detector" name="dynamic_cloud_detector">
+        <param name="WIDTH" value="$(arg width)"/>
+        <param name="RESOLUTION" value="$(arg resolution)"/>
+        <param name="OCCUPANCY_THRESHOLD" value="$(arg occupancy_threshold)"/>
+        <param name="BEAM_NUM" value="$(arg beam_num)"/>
+        <param name="SKIP_SCAN_FLAG" value="$(arg skip_scan_flag)"/>
+		<!-- <remap from="odom" to="/ground_truth/odom"/> -->
+    </node>
+
+	<include file="$(find velodyne_height_map)/launch/amsl_velodyne_heightmap.launch"/>
+	<include file="$(find velodyne_pointcloud)/launch/32e_points.launch"/>
+</launch>

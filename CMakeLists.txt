@@ -159,6 +159,9 @@ add_library(libbev_converter
 add_library(libbev_flow_estimator
   src/bev_flow_estimator.cpp
 )
+add_library(libbev_flow_estimator_compact
+  src/bev_flow_estimator_compact.cpp
+)
 add_library(libraycast_publisher
   src/raycast_publisher.cpp
 )
@@ -172,6 +175,7 @@ add_library(libraycast_publisher
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(libbev_converter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(libbev_flow_estimator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(libbev_flow_estimator_compact ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(libraycast_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(libreboot_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -180,6 +184,7 @@ add_dependencies(libraycast_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(bev_converter src/bev_converter_node.cpp src/bev_converter.cpp)
 add_executable(bev_flow_estimator src/bev_flow_estimator_node.cpp src/bev_flow_estimator.cpp src/bev_image_generator.cpp)
+add_executable(bev_flow_estimator_compact src/bev_flow_estimator_compact_node.cpp src/bev_flow_estimator_compact.cpp)
 add_executable(raycast_publisher src/raycast_publisher_node.cpp src/raycast_publisher.cpp)
 # add_executable(reboot_manager src/reboot_manager_node.cpp src/reboot_manager.cpp)
 add_executable(pointcloud_converter src/pointcloud_converter.cpp)
@@ -197,6 +202,7 @@ add_executable(ground_truth_odom_publisher src/pedsim/ground_truth_odom_publishe
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(bev_converter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(bev_flow_estimator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(bev_flow_estimator_compact ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(raycast_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 # add_dependencies(reboot_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
@@ -216,6 +222,12 @@ target_link_libraries(bev_flow_estimator
 	${PCL_LIBRARIES}
     ${OpenCV_LIBS}
     libbev_flow_estimator
+)
+target_link_libraries(bev_flow_estimator_compact
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+    libbev_flow_estimator_compact
 )
 target_link_libraries(raycast_publisher
 	${catkin_LIBRARIES}

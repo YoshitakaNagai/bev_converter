@@ -41,8 +41,8 @@ void RaycastPublisher::executor(void)
 			raycast_image_msg->header = header_initializer(IS_USE_VELODYNE);
 			raycast_image_publisher.publish(raycast_image_msg);
 
-			std::cout << "velodyne_header.header.seq   : " << velodyne_header.seq << std::endl;
-			std::cout << "raycast_image_msg.header.seq : " << raycast_image_msg->header.seq << std::endl;
+			// std::cout << "velodyne_header.header.seq   : " << velodyne_header.seq << std::endl;
+			// std::cout << "raycast_image_msg.header.seq : " << raycast_image_msg->header.seq << std::endl;
 			
 			initializer();
 		}
@@ -250,7 +250,7 @@ void RaycastPublisher::raycast(cv::Mat& image32f)
 					image32f.at<float>(row, col) = 1.0; // Occupied
 				}
 			}else{
-				std::cout << "pcg_angle_id : " << pcg_angle_id << std::endl;
+				// std::cout << "pcg_angle_id : " << pcg_angle_id << std::endl;
 			}
 		}
 	}
