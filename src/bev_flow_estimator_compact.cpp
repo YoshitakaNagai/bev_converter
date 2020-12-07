@@ -96,12 +96,12 @@ void BEVFlowEstimator::executor(void)
 			
 
 			// for debug
-			sensor_msgs::ImagePtr previous_image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", previous_feature_image).toImageMsg();
-			previous_image_msg->header.seq = bev_seq;
-			previous_image_publisher.publish(previous_image_msg);
-			sensor_msgs::ImagePtr current_image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", current_feature_image).toImageMsg();
-			current_image_msg->header.seq = bev_seq;
-			current_image_publisher.publish(current_image_msg);
+			// sensor_msgs::ImagePtr previous_image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", previous_feature_image).toImageMsg();
+			// previous_image_msg->header.seq = bev_seq;
+			// previous_image_publisher.publish(previous_image_msg);
+			// sensor_msgs::ImagePtr current_image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", current_feature_image).toImageMsg();
+			// current_image_msg->header.seq = bev_seq;
+			// current_image_publisher.publish(current_image_msg);
 
 
 
