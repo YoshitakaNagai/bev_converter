@@ -74,12 +74,13 @@ void BEVFlowEstimator::executor(void)
 			current_feature_image.convertTo(current_feature_image, CV_8U, 255);
 
 			cv::Mat flow_image32f = cv::Mat::zeros(cv::Size(cropped_grid_num, cropped_grid_num), CV_32F);
-			flow_estimator(previous_feature_image, current_feature_image, flow_image32f, flow_multiarray_x, flow_multiarray_y);
+			bool is_flow = flow_estimator(previous_feature_image, current_feature_image, flow_image32f, flow_multiarray_x, flow_multiarray_y);
 
-			// cv::Mat flow_image8u = cv::Mat::zeros(cv::Size(cropped_grid_num, cropped_grid_num), CV_8U);
-			cv::Mat flow_image8u;
-			flow_image32f.convertTo(flow_image8u, CV_8U, 255);
-
+			cv::Mat flow_image8u = cv::Mat::zeros(cv::Size(cropped_grid_num, cropped_grid_num), CV_32F);
+			// cv::Mat flow_image8u;
+			if(is_flow){
+				flow_image32f.convertTo(flow_image8u, CV_8U, 255);
+			}
 			// if(IS_GAZEBO){
 			// 	cv::flip(flow_image8u, flow_image8u, 1);
 			// }
@@ -232,7 +233,7 @@ void BEVFlowEstimator::cuurent_dynamic_image_generator(cv::Mat& dst_image)
 }
 
 
-void BEVFlowEstimator::flow_estimator(cv::Mat& previous_image, cv::Mat& current_image, cv::Mat& dst_image, std_msgs::Float32MultiArray& dst_array_x, std_msgs::Float32MultiArray& dst_array_y)
+bool BEVFlowEstimator::flow_estimator(cv::Mat& previous_image, cv::Mat& current_image, cv::Mat& dst_image, std_msgs::Float32MultiArray& dst_array_x, std_msgs::Float32MultiArray& dst_array_y)
 {
 	std::cout << "flow_estimator" << std::endl;
 	flow_flag = false;
@@ -312,8 +313,10 @@ void BEVFlowEstimator::flow_estimator(cv::Mat& previous_image, cv::Mat& current_
 		cv::cvtColor(hsv, flow_bgr, cv::COLOR_HSV2BGR);
 	}
 	
+	bool is_flow = false;
 	if(flow_bgr.size() == image_size){
 		dst_image = flow_bgr.clone();
+		is_flow = true;
 		std::cout << "flow_bgr done" << std::endl;
 	}else{
 		std::cout << "flow_bgr miss" << std::endl;
@@ -330,6 +333,8 @@ void BEVFlowEstimator::flow_estimator(cv::Mat& previous_image, cv::Mat& current_
 			i++;
 		}
 	}
+
+	return is_flow;
 }
 
 

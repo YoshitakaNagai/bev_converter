@@ -51,7 +51,7 @@ class BEVFlowEstimator
 		void dynamic_pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr&);
 		void odom_callback(const nav_msgs::OdometryConstPtr&);
 		void cuurent_dynamic_image_generator(cv::Mat&);
-        void flow_estimator(cv::Mat&, cv::Mat&, cv::Mat&, std_msgs::Float32MultiArray&, std_msgs::Float32MultiArray&);
+        bool flow_estimator(cv::Mat&, cv::Mat&, cv::Mat&, std_msgs::Float32MultiArray&, std_msgs::Float32MultiArray&);
 		void image_cropper(cv::Mat&, cv::Mat&);
 		void image_transformer(cv::Mat&, cv::Mat&, Eigen::Vector3d, Eigen::Vector3d, double, double);
 

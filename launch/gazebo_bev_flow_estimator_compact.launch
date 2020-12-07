@@ -62,7 +62,7 @@
 		<param name="FRAME_ID" value="$(arg frame_id)" type="str"/>
 		<param name="CHILD_FRAME_ID" value="$(arg child_frame_id)" type="str"/>
 		<!-- gazebo -->
-		<param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/>
+		<!-- <param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/> -->
 
         <!-- <rosparam command="load" file="$(find cats)/config/cats_motion_param.yaml"/> -->
 		<!-- <remap from="/odom" to="/ground_truth/odom"/> -->
