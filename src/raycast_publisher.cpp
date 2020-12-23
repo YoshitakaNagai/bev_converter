@@ -4,16 +4,19 @@
 RaycastPublisher::RaycastPublisher(void)
 : nh("~")
 {
-    nh.param("WIDTH", WIDTH, {8.0});
-    nh.param("GRID_NUM", GRID_NUM, {40});
     nh.param("Hz", Hz, {100.0});
 	nh.param("RAY_NUM", RAY_NUM, {180});
+    nh.param("WIDTH", WIDTH, {8.0});
+    nh.param("GRID_NUM", GRID_NUM, {50});
+	nh.param("MANUAL_CROP_SIZE", MANUAL_CROP_SIZE, {5});
 	nh.param("IS_USE_VELODYNE", IS_USE_VELODYNE, {true});
     // nh.param("");
 
 	laserscan_subscriber = nh.subscribe("/scan", 10, &RaycastPublisher::laserscan_callback, this);
 	pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &RaycastPublisher::pointcloud_callback, this);
+
 	raycast_image_publisher = nh.advertise<sensor_msgs::Image>("/bev/raycast_image", 10);
+	raycast_multiarray_publisher = nh.advertise<std_msgs::Float32MultiArray>("/bev/raycast_multiarray", 10);
 }
 
 
@@ -25,7 +28,7 @@ void RaycastPublisher::executor(void)
 	while(ros::ok()){
 		if(laserscan_callback_flag && pointcloud_callback_flag){
 			ray_listup(IS_USE_VELODYNE);
-			cv::Mat raycast_image32f = cv::Mat::zeros(GRID_NUM, GRID_NUM, CV_32FC1);
+			cv::Mat raycast_image32f = cv::Mat::zeros(cropped_grid_num, cropped_grid_num, CV_32FC1);
 			raycast(raycast_image32f);
 			cv::Mat raycast_image8u;
 			if(IS_USE_VELODYNE){
@@ -41,6 +44,7 @@ void RaycastPublisher::executor(void)
 			raycast_image_msg->header = header_initializer(IS_USE_VELODYNE);
 			raycast_image_publisher.publish(raycast_image_msg);
 
+			raycast_multiarray_publisher.publish(raycast_multiarray);
 			// std::cout << "velodyne_header.header.seq   : " << velodyne_header.seq << std::endl;
 			// std::cout << "raycast_image_msg.header.seq : " << raycast_image_msg->header.seq << std::endl;
 			
@@ -57,7 +61,8 @@ void RaycastPublisher::formatter(void)
 {
 	// std::cout << "formatter" << std::endl;
     dt = 1.0 / Hz;
-    grid_size = WIDTH / (float)GRID_NUM;
+	cropped_grid_num = GRID_NUM - 2 * MANUAL_CROP_SIZE;
+    grid_size = WIDTH / (float)cropped_grid_num;
 	angle_resolution = 2 * M_PI / (float)RAY_NUM;
 	
 	Cast init_cast;
@@ -69,23 +74,32 @@ void RaycastPublisher::formatter(void)
 	init_ray.cast.range = 0.0;
 	init_ray.is_check = false;
 	init_ray.index2d_list.resize(0);
-	for(int row = 0; row < GRID_NUM; row++){
+	for(int row = 0; row < cropped_grid_num; row++){
 		row_grid.push_back(init_cast);
 	}
-	for(int col = 0; col < GRID_NUM; col++){
+	for(int col = 0; col < cropped_grid_num; col++){
 		precast_grid.push_back(row_grid);
 	}
 	for(int i = 0; i < RAY_NUM; i++){
 		ray_list.push_back(init_ray);
 	}
 
+	raycast_multiarray.data.resize(0);
+	int multiarray_size = cropped_grid_num * cropped_grid_num;
+	for(int i = 0; i < multiarray_size; i++){
+		raycast_multiarray.data.push_back(0.0);
+	}
+	raycast_multiarray.layout.data_offset = (uint32_t)cropped_grid_num;
+	raycast_multiarray.layout.dim.resize(1);
+	raycast_multiarray.layout.dim[0].size = 2;
+
 	precast();
 
 	std::vector<bool> is_hit;
-	for(int row = 0; row < GRID_NUM; row++){
+	for(int row = 0; row < cropped_grid_num; row++){
 		is_hit.push_back(false);
 	}
-	for(int col = 0; col < GRID_NUM; col++){
+	for(int col = 0; col < cropped_grid_num; col++){
 		is_hit_grid.push_back(is_hit);
 	}
 }
@@ -107,8 +121,8 @@ void RaycastPublisher::initializer(void)
 		ray_list[i].is_check = false;
 		// ray_list[i].index2d_list.clear();
 	}
-	for(int col = 0; col < GRID_NUM; col++){
-		for(int row = 0; row < GRID_NUM; row++){
+	for(int col = 0; col < cropped_grid_num; col++){
+		for(int row = 0; row < cropped_grid_num; row++){
 			is_hit_grid[row][col] = false;
 		}
 	}
@@ -136,8 +150,8 @@ void RaycastPublisher::pointcloud_callback(const sensor_msgs::PointCloud2ConstPt
 void RaycastPublisher::precast(void)
 {
 	// std::cout << "precast_grid" << std::endl;
-	for(int col = 0; col < GRID_NUM; col++){
-		for(int row = 0; row < GRID_NUM; row++){
+	for(int col = 0; col < cropped_grid_num; col++){
+		for(int row = 0; row < cropped_grid_num; row++){
 			float relative_robotcs_x = 0.5 * WIDTH - ((float)col + 0.5) * grid_size;
 			float relative_robotcs_y = 0.5 * WIDTH - ((float)row + 0.5) * grid_size;
 			// float relative_robotcs_x = 0.5 * WIDTH - (float)col * grid_size;
@@ -197,7 +211,7 @@ void RaycastPublisher::ray_listup(bool is_use_velodyne)
 			float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
 			int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
 			int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
-			if((0 < hit_row && hit_row < GRID_NUM) && (0 < hit_col && hit_col < GRID_NUM)){
+			if((0 <= hit_row && hit_row < cropped_grid_num) && (0 <= hit_col && hit_col < cropped_grid_num)){
 				is_hit_grid[hit_row][hit_col] = true;
 			}
 		}
@@ -223,7 +237,7 @@ void RaycastPublisher::ray_listup(bool is_use_velodyne)
 					float hit_gridcs_cold = 0.5 * WIDTH - ray_robotcs_x;
 					int hit_row = (int)std::floor(hit_gridcs_rowd / grid_size);
 					int hit_col = (int)std::floor(hit_gridcs_cold / grid_size);
-					if((0 < hit_row && hit_row < GRID_NUM) && (0 < hit_col && hit_col < GRID_NUM)){
+					if((0 <= hit_row && hit_row < cropped_grid_num) && (0 <= hit_col && hit_col < cropped_grid_num)){
 						is_hit_grid[hit_row][hit_col] = true;
 					}
 				}
@@ -236,8 +250,8 @@ void RaycastPublisher::ray_listup(bool is_use_velodyne)
 void RaycastPublisher::raycast(cv::Mat& image32f)
 {
 	// std::cout << "raycast" << std::endl;
-	for(int col = 0; col < GRID_NUM; col++){
-		for(int row = 0; row < GRID_NUM; row++){
+	for(int col = 0; col < cropped_grid_num; col++){
+		for(int row = 0; row < cropped_grid_num; row++){
 			int pcg_angle_id = precast_grid[row][col].angle_id;
 			image32f.at<float>(row, col) = 0.5; // Unknown
 			if(ray_list[pcg_angle_id].is_check){
@@ -255,6 +269,14 @@ void RaycastPublisher::raycast(cv::Mat& image32f)
 		}
 	}
 
+	int i = 0;
+	for(int row = 0; row < cropped_grid_num; row++){
+		for(int col = 0; col < cropped_grid_num; col++){
+			raycast_multiarray.data[i] = image32f.at<float>(row, col);
+			i++;
+		}
+	}
+
 
 	// for(int i = 0; i < RAY_NUM; i++){
 	// 	int index2d_size = ray_list[i].index2d_list.size();
@@ -269,12 +291,19 @@ void RaycastPublisher::raycast(cv::Mat& image32f)
 	// 	}
 	// }
     //
-	// for(int col = 0; col < GRID_NUM; col++){
-	// 	for(int row = 0; row < GRID_NUM; row++){
+	// for(int col = 0; col < cropped_grid_num; col++){
+	// 	for(int row = 0; row < cropped_grid_num; row++){
 	// 		if(is_hit_grid[row][col]){
 	// 			image32f.at<float>(row, col) = 1.0; // Occupied
 	// 		}
 	// 	}
+	// }
+	
+	// for(int row = 0; row < cropped_grid_num; row++){
+	// 	for(int col = 0; col < cropped_grid_num; col++){
+	// 		printf("%.1f ", image32f.at<float>(row, col));
+	// 	}
+	// 	printf("\n");
 	// }
 }
 

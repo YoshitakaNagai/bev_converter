@@ -38,6 +38,7 @@
 		<!-- grid -->
 		<param name="WIDTH" value="$(arg width)" type="double"/>
 		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
+		<param name="MANUAL_CROP_SIZE" value="$(arg manual_crop_size)" type="int"/>
 		<!-- ray number -->
 		<param name="RAY_NUM" value="180" type="int"/>
 		<!-- Velodyne or 2D LiDAR -->

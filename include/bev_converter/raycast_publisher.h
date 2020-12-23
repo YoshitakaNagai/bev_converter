@@ -2,15 +2,13 @@
 #define __RAYCAST_PUBLISHER_H
 
 #include <ros/ros.h>
-// #include <std_msgs/Header>
+#include <std_msgs/Float32MultiArray.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/passthrough.h>
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 
@@ -71,6 +69,8 @@ class RaycastPublisher
 		std::string FRAME_ID;
         int GRID_NUM;
 		int RAY_NUM;
+		int MANUAL_CROP_SIZE;
+		int cropped_grid_num;
 		float angle_resolution;
 		float grid_size;
         double WIDTH;
@@ -82,8 +82,10 @@ class RaycastPublisher
 		ros::Subscriber laserscan_subscriber;
 		ros::Subscriber pointcloud_subscriber;
 		ros::Publisher raycast_image_publisher;
+		ros::Publisher raycast_multiarray_publisher;
 
 		std_msgs::Header velodyne_header;
+		std_msgs::Float32MultiArray raycast_multiarray;
 		sensor_msgs::LaserScan lasers;
 		PointCloudIPtr input_points {new PointCloudI};
 		// cv::Mat raycast_image32f;
