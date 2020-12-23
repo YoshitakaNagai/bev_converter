@@ -3,16 +3,18 @@
 	<!-- ros loop rate -->
     <arg name="hz" default="100.0"/>
 	<!-- grid -->
-    <arg name="width" default="10.0"/>
-    <arg name="grid_num" default="100"/>
+    <arg name="width" default="8.0"/>
+    <arg name="grid_num" default="80"/>
     <arg name="brightness_decreas_rate" default="0.5"/>
 	<!-- storage -->
-    <arg name="step_memory_size" default="3"/>
+    <arg name="step_memory_size" default="10"/>
 	<!-- frame -->
     <arg name="frame_id" default="odom"/>
     <arg name="child_frame_id" default="base_footprint"/>
 	<!-- sim or bag -->
     <arg name="is_gazebo" default="true"/>
+	<!-- robot -->
+    <arg name="robot_rsize" default="0.13"/>
 
 	<param name="use_sim_time" value="false"/>
 
@@ -27,6 +29,8 @@
 		<param name="STEP_MEMORY_SIZE" value="$(arg step_memory_size)" type="int"/>
 		<!-- sim or bag -->
 		<param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/>
+		<!-- robot -->
+		<param name="ROBOT_RSIZE" value="$(arg robot_rsize)" type="double"/>
 	</node>
 
 

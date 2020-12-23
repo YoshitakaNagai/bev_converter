@@ -8,11 +8,13 @@ TemporalBEV::TemporalBEV(void)
 	// grid
 	nh.param("WIDTH", WIDTH, {10.0});
 	nh.param("GRID_NUM", GRID_NUM, {50});
-	nh.param("BRIGHTNESS_DECREES_RATE", BRIGHTNESS_DECREES_RATE, {0.5});
+	nh.param("BRIGHTNESS_DECREAS_RATE", BRIGHTNESS_DECREAS_RATE, {0.5});
 	// storage
 	nh.param("STEP_MEMORY_SIZE", STEP_MEMORY_SIZE, {10});
 	// sim or bag
 	nh.param("IS_GAZEBO", IS_GAZEBO, {true});
+	// robot
+	nh.param("ROBOT_RSIZE", ROBOT_RSIZE, {0.13});
 
 	obstacle_pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &TemporalBEV::pointcloud_callback, this);
 	odom_subscriber = nh.subscribe("/odom", 10, &TemporalBEV::odom_callback, this);
@@ -24,46 +26,45 @@ TemporalBEV::TemporalBEV(void)
 void TemporalBEV::executor()
 {
 	formatter();
-	Eigen::Vector3d pre_position = Eigen::Vector3d::Zero();
-	Eigen::Vector3d d_move = Eigen::Vector3d::Zero();
-	tf::Quaternion pre_pose;
-	cv::Mat bev_temporal_image = cv::Mat::zeros(image_size, CV_32FC1);
+	Eigen::Vector3d now_position = Eigen::Vector3d::Zero();
+	Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
+	tf::Quaternion now_pose;
+	tf::Quaternion last_pose;
 
 	ros::Rate r(Hz);
 	while(ros::ok()){
 		if(pointcloud_callback_flag && odom_callback_flag){
 			initializer();
-			if(is_first){
-				pre_position = current_position;
-				pre_pose = current_pose;
-				is_first = false;
-			}
-
-			Eigen::Vector3d d_move = displacement_calculator(pre_position);
-			tf::Quaternion relative_rotation = pre_pose * current_pose.inverse();
-			relative_rotation.normalize();
-			Eigen::Quaternionf rotation(relative_rotation.w(), relative_rotation.x(), relative_rotation.y(), relative_rotation.z());
-			tf::Quaternion q_global_move(-d_move.x(), -d_move.y(), -d_move.z(), 0.0);
-			tf::Quaternion q_local_move = pre_pose.inverse() * q_global_move * pre_pose;
-			Eigen::Vector3f offset(q_local_move.x(), q_local_move.y(), q_local_move.z());
+			
+			now_position = current_position;
+			last_position = previous_position;
+			now_pose = current_pose;
+			last_pose = previous_pose;
 
 			for(int i = 0; i < pointcloud_list.size(); i++){ // Exclude the latest steps
 				PointCloudIPtr pcl_tmp_pointcloud{new PointCloudI};
 				PointCloudIPtr pcl_transformed_pointcloud{new PointCloudI};
 				pcl_tmp_pointcloud = pointcloud_list[i];
-				pcl::transformPointCloud(*pcl_tmp_pointcloud, *pcl_transformed_pointcloud, offset, rotation);
+				pcl_transformed_pointcloud = pointcloud_transformer(pcl_tmp_pointcloud, now_position, last_position, now_pose, last_pose);
 				pointcloud_list[i] = pcl_transformed_pointcloud;
 				
-				int elapsed_step = STEP_MEMORY_SIZE - (i + 1);
-				cv::Mat tmp_image = bev_temporal_image.clone();
-				bev_generator(pcl_transformed_pointcloud, tmp_image, bev_temporal_image, elapsed_step);
+				int elapsed_step = pointcloud_list.size() - (i + 1);
+				cv::Mat bev_image = cv::Mat::zeros(image_size, CV_32FC1);
+				bev_generator(pcl_transformed_pointcloud, bev_image, elapsed_step);
+				image_list[i] = bev_image.clone();
 			}
+			
+			cv::Mat bev_temporal_image = cv::Mat::zeros(image_size, CV_32FC1);
+			temporal_bev_generator(bev_temporal_image);
 
 			cv::Mat cv_pub_image32fc1 = bev_temporal_image.clone();
 			cv::Mat cv_pub_image8uc1 = cv::Mat::zeros(image_size, CV_32FC1);
 			cv_pub_image32fc1.convertTo(cv_pub_image8uc1, CV_8UC1, 255);
 			sensor_msgs::ImagePtr image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv_pub_image8uc1).toImageMsg();
 			temporal_bev_image_publisher.publish(image_msg);
+
+			previous_position = now_position;
+			previous_pose = now_pose;
 		}
 
 		r.sleep();
@@ -79,20 +80,39 @@ void TemporalBEV::formatter(void)
 	is_first = true;
 
 	grid_resolution = WIDTH / (double)GRID_NUM;
+	image_size = cv::Size(GRID_NUM, GRID_NUM);
+	format_image = cv::Mat::zeros(image_size, CV_32FC1);
 
 	pointcloud_list.resize(0);
-	image_size = cv::Size(GRID_NUM, GRID_NUM);
+
+	image_list.resize(0);
+	for(int i = 0; i < STEP_MEMORY_SIZE; i++){
+		image_list.push_back(format_image);
+	}
 }
 
 
 void TemporalBEV::initializer(void)
 {
+	if(is_first){
+		previous_position = current_position;
+		previous_pose = current_pose;
+		is_first = false;
+	}
+
 	pointcloud_callback_flag = false;
 	odom_callback_flag = false;
+
 	pointcloud_list.push_back(pcl_import_pointcloud);
 	if(pointcloud_list.size() > STEP_MEMORY_SIZE){
 		pointcloud_list.erase(pointcloud_list.begin());
 	}
+	std::cout << "pointcloud_list.size() = " << pointcloud_list.size() << std::endl;
+	
+	// if(image_list.size() > STEP_MEMORY_SIZE){
+	// 	image_list.erase(image_list.begin());
+	// }
+	std::cout << "image_list.size() = " << image_list.size() << std::endl;
 }
 
 
@@ -117,18 +137,39 @@ void TemporalBEV::odom_callback(const nav_msgs::OdometryConstPtr &msg)
 }
 
 
-Eigen::Vector3d TemporalBEV::displacement_calculator(Eigen::Vector3d previous_position)
+pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalBEV::pointcloud_transformer(PointCloudIPtr pcl_reference_pointcloud,
+																		 Eigen::Vector3d now_position,
+																		 Eigen::Vector3d last_position,
+																		 tf::Quaternion now_pose,
+																		 tf::Quaternion last_pose)
 {
-	Eigen::Vector3d return_d_move = current_position - previous_position;
+	PointCloudIPtr pcl_return_pointcloud{new PointCloudI};
+
+	Eigen::Vector3d d_move = displacement_calculator(now_position, last_position);
+	tf::Quaternion relative_rotation = last_pose * now_pose.inverse();
+	relative_rotation.normalize();
+	Eigen::Quaternionf rotation(relative_rotation.w(), relative_rotation.x(), relative_rotation.y(), relative_rotation.z());
+	tf::Quaternion q_global_move(-d_move.x(), -d_move.y(), -d_move.z(), 0.0);
+	tf::Quaternion q_local_move = last_pose.inverse() * q_global_move * last_pose;
+	Eigen::Vector3f offset(q_local_move.x(), q_local_move.y(), q_local_move.z());
+
+	pcl::transformPointCloud(*pcl_reference_pointcloud, *pcl_return_pointcloud, offset, rotation);
+
+	return pcl_return_pointcloud;
+}
+
+
+Eigen::Vector3d TemporalBEV::displacement_calculator(Eigen::Vector3d now_position, Eigen::Vector3d last_position)
+{
+	Eigen::Vector3d return_d_move = now_position - last_position;
 
 	return return_d_move;
 }
 
 
-void TemporalBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat &src_image, cv::Mat &dst_image, int elapsed_step)
+void TemporalBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat &dst_image, int elapsed_step)
 {
-	float brightness = std::pow((float)BRIGHTNESS_DECREES_RATE, (float)elapsed_step);
-	dst_image = src_image.clone();
+	float brightness = std::pow((float)BRIGHTNESS_DECREAS_RATE, elapsed_step);
 
 	for(auto& pt : pcl_reference_pointcloud->points){
 		float robotcs_x = pt.x; 
@@ -138,33 +179,40 @@ void TemporalBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat
 		int hit_row = std::floor(hit_gridcs_rerow / grid_resolution);
 		int hit_col = std::floor(hit_gridcs_recol / grid_resolution);
 		if((0 < hit_row && hit_row < GRID_NUM) && (0 < hit_col && hit_col < GRID_NUM)){
-			if(src_image.at<float>(hit_row, hit_col) <= brightness){
-				dst_image.at<float>(hit_row, hit_col) = brightness;
-			}else{
-				dst_image.at<float>(hit_row, hit_col) = src_image.at<float>(hit_row, hit_col);
-			}
+			dst_image.at<float>(hit_row, hit_col) = brightness;
 		}
 	}
 }
 
 
+void TemporalBEV::temporal_bev_generator(cv::Mat &dst_image)
+{
+	for(int col = 0; col < GRID_NUM; col++){
+		for(int row = 0; row < GRID_NUM; row++){
+			float max_brightness = 0.0;
+			for(int i = 0; i < image_list.size(); i++){
+				cv::Mat tmp_image = cv::Mat::zeros(image_size, CV_32FC1);
+				cv::Mat reference_image = cv::Mat::zeros(image_size, CV_32FC1);
+				tmp_image = image_list[i];
+				reference_image = tmp_image.clone();
+				float reference_brightness = reference_image.at<float>(row, col);
+				if(reference_brightness > max_brightness){
+					max_brightness = reference_brightness;
+				}
+			}
+			dst_image.at<float>(row, col) = max_brightness;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+			float distance_from_center_x = 0.5 * (float)WIDTH - grid_resolution * col;
+			float distance_from_center_y = 0.5 * (float)WIDTH - grid_resolution * row;
+			float distance_from_center_x_pow = distance_from_center_x * distance_from_center_x;
+			float distance_from_center_y_pow = distance_from_center_y * distance_from_center_y;
+			float distance_from_center = sqrt(distance_from_center_x_pow + distance_from_center_y_pow);
+			if(distance_from_center < ROBOT_RSIZE){
+				dst_image.at<float>(row, col) = 1.0;
+			}
+		}
+	}
+}
 
 
 

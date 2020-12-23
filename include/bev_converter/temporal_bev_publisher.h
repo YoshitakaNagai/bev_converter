@@ -42,8 +42,10 @@ class TemporalBEV
         void initializer(void);
 		void pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr&);
 		void odom_callback(const nav_msgs::OdometryConstPtr&);
-		Eigen::Vector3d displacement_calculator(Eigen::Vector3d);
-		void bev_generator(PointCloudIPtr, cv::Mat&, cv::Mat&, int);
+		PointCloudIPtr pointcloud_transformer(PointCloudIPtr, Eigen::Vector3d, Eigen::Vector3d, tf::Quaternion, tf::Quaternion);
+		Eigen::Vector3d displacement_calculator(Eigen::Vector3d, Eigen::Vector3d);
+		void bev_generator(PointCloudIPtr, cv::Mat&, int);
+		void temporal_bev_generator(cv::Mat&);
 
 	private:
 		bool odom_callback_flag;
@@ -56,6 +58,7 @@ class TemporalBEV
 		double WIDTH;
 		double grid_resolution;
 		double BRIGHTNESS_DECREAS_RATE;
+		double ROBOT_RSIZE;
 		double current_yaw;
 
 		ros::NodeHandle nh;
@@ -68,10 +71,13 @@ class TemporalBEV
 
 
 		cv::Size image_size;
+		cv::Mat format_image;
+		std::vector<cv::Mat> image_list;
 
 		tf::Quaternion current_pose;
+		tf::Quaternion previous_pose;
 		Eigen::Vector3d current_position;
-		Eigen::Affine3d affine_transform;
+		Eigen::Vector3d previous_position;
 };
 
 #endif// __TEMPORAL_BEV_PUBLISHER_H
