@@ -15,8 +15,11 @@ TemporalBEV::TemporalBEV(void)
 	nh.param("IS_GAZEBO", IS_GAZEBO, {true});
 	// robot
 	nh.param("ROBOT_RSIZE", ROBOT_RSIZE, {0.13});
+	nh.param("SCAN_ERROR_THRESHOLD", SCAN_ERROR_THRESHOLD, {1.0});
+	nh.param("IS_USE_2D_LIDAR", IS_USE_2D_LIDAR, {true});
 
 	obstacle_pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &TemporalBEV::pointcloud_callback, this);
+	scan_subscriber = nh.subscribe("/scan", 10, &TemporalBEV::scan_callback, this);
 	odom_subscriber = nh.subscribe("/odom", 10, &TemporalBEV::odom_callback, this);
 	episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalBEV::episode_flag_callback, this);
 
@@ -77,6 +80,7 @@ void TemporalBEV::executor()
 void TemporalBEV::formatter(void)
 {
 	pointcloud_callback_flag = false;
+	scan_callback_flag = false;
 	odom_callback_flag = false;
 	episode_flag_callback_flag = false;
 	is_first = true;
@@ -86,6 +90,7 @@ void TemporalBEV::formatter(void)
 	format_image = cv::Mat::zeros(image_size, CV_32FC1);
 
 	pointcloud_list.resize(0);
+	pcl_2d_scan_bfr->points.resize(0);
 
 	image_list.resize(0);
 	for(int i = 0; i < STEP_MEMORY_SIZE; i++){
@@ -103,10 +108,6 @@ void TemporalBEV::initializer(void)
 	}
 
 
-	pointcloud_list.push_back(pcl_import_pointcloud);
-	if(pointcloud_list.size() > STEP_MEMORY_SIZE){
-		pointcloud_list.erase(pointcloud_list.begin());
-	}
 
 	if(episode_flag_callback_flag){
 		std::cout << "is_finish_episode : " << is_finish_episode << std::endl;
@@ -120,14 +121,60 @@ void TemporalBEV::initializer(void)
 		}
 	}
 
-	std::cout << "pointcloud_list.size() = " << pointcloud_list.size() << std::endl;
 	
 	// if(image_list.size() > STEP_MEMORY_SIZE){
 	// 	image_list.erase(image_list.begin());
 	// }
 	std::cout << "image_list.size() = " << image_list.size() << std::endl;
 
+	pcl_process_pointcloud = pcl_import_pointcloud;
+
+	if(IS_USE_2D_LIDAR){
+		if(scan_callback_flag){
+			PointCloudIPtr pcl_2d_scan{new PointCloudI};
+			pcl_2d_scan->points.resize(0);
+			for(int i = 0; i < scan_msg.ranges.size(); i++){
+				if(isfinite(scan_msg.ranges[i])){
+					PointI laser_point;
+					laser_point.x = scan_msg.ranges[i] * cos(i * scan_msg.angle_increment);
+					laser_point.y = scan_msg.ranges[i] * sin(i * scan_msg.angle_increment);
+					laser_point.z = 0.18;
+					laser_point.intensity = scan_msg.intensities[i];
+					pcl_2d_scan->points.push_back(laser_point);
+				}
+			}
+			int pcl_size = 0;
+			if(pcl_2d_scan->points.size() <= pcl_2d_scan_bfr->points.size()){
+				pcl_size = pcl_2d_scan->points.size();
+			}else{
+				pcl_size = pcl_2d_scan_bfr->points.size();
+			}
+			float error_sum = 0.0;
+			for(int i = 0; i < pcl_size; i++){
+				float x = pcl_2d_scan->points[i].x;
+				float y = pcl_2d_scan->points[i].y;
+				float x_bfr = pcl_2d_scan_bfr->points[i].x;
+				float y_bfr = pcl_2d_scan_bfr->points[i].y;
+				float range = sqrt(x * x + y * y);
+				float range_bfr = sqrt(x_bfr * x_bfr + y_bfr * y_bfr);
+				error_sum += std::fabs(range - range_bfr);
+			}
+
+			if(error_sum < SCAN_ERROR_THRESHOLD){
+				*pcl_process_pointcloud += *pcl_2d_scan;
+			}
+			pcl_2d_scan_bfr = pcl_2d_scan;
+		}
+	}
+
+	pointcloud_list.push_back(pcl_process_pointcloud);
+	if(pointcloud_list.size() > STEP_MEMORY_SIZE){
+		pointcloud_list.erase(pointcloud_list.begin());
+	}
+	std::cout << "pointcloud_list.size() = " << pointcloud_list.size() << std::endl;
+
 	pointcloud_callback_flag = false;
+	scan_callback_flag = false;
 	odom_callback_flag = false;
 	episode_flag_callback_flag = false;
 }
@@ -140,6 +187,15 @@ void TemporalBEV::pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr &ms
 	pcl::fromROSMsg(import_pointcloud_msg, *pcl_import_pointcloud);
 
 	pointcloud_callback_flag = true;
+}
+
+
+void TemporalBEV::scan_callback(const sensor_msgs::LaserScanConstPtr &msg)
+{
+	// std::cout << "pointcloud_callback" << std::endl;
+	scan_msg = *msg;
+
+	scan_callback_flag = true;
 }
 
 

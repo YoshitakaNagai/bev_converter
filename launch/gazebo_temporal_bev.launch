@@ -15,6 +15,8 @@
     <arg name="is_gazebo" default="true"/>
 	<!-- robot -->
     <arg name="robot_rsize" default="0.13"/>
+    <arg name="scan_error_threshold" default="0.001"/>
+    <arg name="is_use_2d_lidar" default="true"/>
 
 	<param name="use_sim_time" value="false"/>
 
@@ -31,6 +33,8 @@
 		<param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/>
 		<!-- robot -->
 		<param name="ROBOT_RSIZE" value="$(arg robot_rsize)" type="double"/>
+		<param name="SCAN_ERROR_THRESHOLD" value="$(arg robot_rsize)" type="double"/>
+		<param name="IS_USE_2D_LiDAR" value="$(arg is_use_2d_lidar)" type="bool"/>
 	</node>
 
 

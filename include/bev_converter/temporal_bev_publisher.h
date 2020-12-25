@@ -6,6 +6,8 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/LaserScan.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 
@@ -42,6 +44,7 @@ class TemporalBEV
         void formatter(void);
         void initializer(void);
 		void pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr&);
+		void scan_callback(const sensor_msgs::LaserScanConstPtr&);
 		void odom_callback(const nav_msgs::OdometryConstPtr&);
 		void episode_flag_callback(const std_msgs::Bool::ConstPtr&);
 		PointCloudIPtr pointcloud_transformer(PointCloudIPtr, Eigen::Vector3d, Eigen::Vector3d, tf::Quaternion, tf::Quaternion);
@@ -52,10 +55,12 @@ class TemporalBEV
 	private:
 		bool odom_callback_flag;
 		bool pointcloud_callback_flag;
+		bool scan_callback_flag;
 		bool episode_flag_callback_flag;
 		bool is_first;
 		bool is_finish_episode;
 		bool IS_GAZEBO;
+		bool IS_USE_2D_LIDAR;
 		int GRID_NUM;
 		int STEP_MEMORY_SIZE;
 		double Hz;
@@ -63,15 +68,21 @@ class TemporalBEV
 		double grid_resolution;
 		double BRIGHTNESS_DECREAS_RATE;
 		double ROBOT_RSIZE;
+		double SCAN_ERROR_THRESHOLD;
 		double current_yaw;
 
 		ros::NodeHandle nh;
 		ros::Subscriber obstacle_pointcloud_subscriber;
 		ros::Subscriber odom_subscriber;
+		ros::Subscriber scan_subscriber;
 		ros::Subscriber episode_flag_subscriber;
 		ros::Publisher temporal_bev_image_publisher;
 
+		sensor_msgs::LaserScan scan_msg;
+
 		PointCloudIPtr pcl_import_pointcloud {new PointCloudI};
+		PointCloudIPtr pcl_process_pointcloud {new PointCloudI};
+		PointCloudIPtr pcl_2d_scan_bfr {new PointCloudI};
 		std::vector<PointCloudIPtr> pointcloud_list;
 
 
