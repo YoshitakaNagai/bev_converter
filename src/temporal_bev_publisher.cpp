@@ -18,6 +18,7 @@ TemporalBEV::TemporalBEV(void)
 
 	obstacle_pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &TemporalBEV::pointcloud_callback, this);
 	odom_subscriber = nh.subscribe("/odom", 10, &TemporalBEV::odom_callback, this);
+	episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalBEV::episode_flag_callback, this);
 
 	temporal_bev_image_publisher = nh.advertise<sensor_msgs::Image>("/bev/temporal_bev_image", 10);
 }
@@ -77,6 +78,7 @@ void TemporalBEV::formatter(void)
 {
 	pointcloud_callback_flag = false;
 	odom_callback_flag = false;
+	episode_flag_callback_flag = false;
 	is_first = true;
 
 	grid_resolution = WIDTH / (double)GRID_NUM;
@@ -100,19 +102,34 @@ void TemporalBEV::initializer(void)
 		is_first = false;
 	}
 
-	pointcloud_callback_flag = false;
-	odom_callback_flag = false;
 
 	pointcloud_list.push_back(pcl_import_pointcloud);
 	if(pointcloud_list.size() > STEP_MEMORY_SIZE){
 		pointcloud_list.erase(pointcloud_list.begin());
 	}
+
+	if(episode_flag_callback_flag){
+		std::cout << "is_finish_episode : " << is_finish_episode << std::endl;
+		if(is_finish_episode){
+			pointcloud_list.clear();
+			std::cout << "clear!!" << std::endl;
+
+			for(int i = 0; i < STEP_MEMORY_SIZE; i++){
+				image_list[i] = format_image.clone();
+			}
+		}
+	}
+
 	std::cout << "pointcloud_list.size() = " << pointcloud_list.size() << std::endl;
 	
 	// if(image_list.size() > STEP_MEMORY_SIZE){
 	// 	image_list.erase(image_list.begin());
 	// }
 	std::cout << "image_list.size() = " << image_list.size() << std::endl;
+
+	pointcloud_callback_flag = false;
+	odom_callback_flag = false;
+	episode_flag_callback_flag = false;
 }
 
 
@@ -134,6 +151,14 @@ void TemporalBEV::odom_callback(const nav_msgs::OdometryConstPtr &msg)
 	quaternionMsgToTF(msg->pose.pose.orientation, current_pose);
 
 	odom_callback_flag = true;
+}
+
+
+void TemporalBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &msg)
+{
+	is_finish_episode = msg->data;
+
+	episode_flag_callback_flag = true;
 }
 
 
