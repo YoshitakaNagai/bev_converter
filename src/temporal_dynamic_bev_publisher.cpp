@@ -58,6 +58,8 @@ void TemporalDynamicBEV::executor()
 				pcl_transformed_pointcloud = pointcloud_transformer(pcl_tmp_pointcloud, now_position, last_position, now_pose, last_pose);
 				pointcloud_list[i] = pcl_transformed_pointcloud;
 				
+				bev_image = cv::Mat::zeros(image_size, CV_32FC1);
+				bev_current_image = cv::Mat::zeros(image_size, CV_32FC1);
 				int elapsed_step = pointcloud_list.size() - (i + 1);
 				bev_generator(pcl_transformed_pointcloud, bev_image, elapsed_step);
 				if(i == pointcloud_list_size - 1){ // if current
@@ -251,6 +253,8 @@ void TemporalDynamicBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &m
 			dynamic_image_list[i] = format_image.clone();
 		}
 	}
+
+	pointcloud_list.clear();
 
 	episode_flag_callback_flag = true;
 }

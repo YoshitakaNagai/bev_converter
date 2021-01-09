@@ -7,7 +7,7 @@
     <arg name="grid_num" default="100"/>
     <arg name="brightness_decreas_rate" default="0.90"/>
 	<!-- storage -->
-    <arg name="step_memory_size" default="8"/>
+    <arg name="step_memory_size" default="6"/>
 	<!-- frame -->
     <arg name="frame_id" default="odom"/>
     <arg name="child_frame_id" default="base_footprint"/>
