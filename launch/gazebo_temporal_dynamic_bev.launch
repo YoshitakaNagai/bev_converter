@@ -16,7 +16,7 @@
 	<!-- robot -->
     <arg name="robot_rsize" default="0.13"/>
     <arg name="scan_error_threshold" default="100.0"/>
-    <arg name="is_use_2d_lidar" default="true"/>
+    <arg name="is_use_2d_lidar" default="false"/>
 
 	<!-- dynamic_cloud_detector -->
     <arg name="dynamic_cloud_detector_resolution" default="0.5"/>
