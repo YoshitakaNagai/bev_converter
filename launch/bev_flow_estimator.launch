@@ -6,7 +6,8 @@
     <arg name="hz" default="100.0"/>
     <arg name="crop" default="5"/>
     <arg name="max_corners" default="20"/>
-    <arg name="quality_level" default="0.05"/>
+    <!-- <arg name="quality_level" default="0.05"/> -->
+    <arg name="quality_level" default="0.1"/>
     <arg name="min_distance" default="5.0"/>
     <arg name="win_size" default="4"/>
     <arg name="max_count" default="5"/>

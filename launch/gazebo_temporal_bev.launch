@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- ros loop rate -->
+    <arg name="hz" default="100.0"/>
+	<!-- grid -->
+    <arg name="width" default="5.0"/>
+    <arg name="grid_num" default="100"/>
+    <arg name="brightness_decreas_rate" default="0.5"/>
+	<!-- storage -->
+    <arg name="step_memory_size" default="5"/>
+	<!-- frame -->
+    <arg name="frame_id" default="odom"/>
+    <arg name="child_frame_id" default="base_footprint"/>
+	<!-- sim or bag -->
+    <arg name="is_gazebo" default="true"/>
+	<!-- robot -->
+    <arg name="robot_rsize" default="0.13"/>
+    <arg name="scan_error_threshold" default="100.0"/>
+    <arg name="is_use_2d_lidar" default="true"/>
+
+	<param name="use_sim_time" value="false"/>
+
+	<node pkg="bev_converter" type="temporal_bev_publisher" name="temporal_bev_publisher" output="screen">
+		<!-- ros loop rate -->
+		<param name="Hz" value="$(arg hz)" type="double"/>
+		<!-- grid -->
+		<param name="WIDTH" value="$(arg width)" type="double"/>
+		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
+		<param name="BRIGHTNESS_DECREAS_RATE" value="$(arg brightness_decreas_rate)" type="double"/>
+		<!-- storage -->
+		<param name="STEP_MEMORY_SIZE" value="$(arg step_memory_size)" type="int"/>
+		<!-- sim or bag -->
+		<param name="IS_GAZEBO" value="$(arg is_gazebo)" type="bool"/>
+		<!-- robot -->
+		<param name="ROBOT_RSIZE" value="$(arg robot_rsize)" type="double"/>
+		<param name="SCAN_ERROR_THRESHOLD" value="$(arg robot_rsize)" type="double"/>
+		<param name="IS_USE_2D_LiDAR" value="$(arg is_use_2d_lidar)" type="bool"/>
+	</node>
+
+
+	<include file="$(find velodyne_height_map)/launch/amsl_velodyne_heightmap.launch"/>
+	<include file="$(find velodyne_pointcloud)/launch/32e_points.launch"/>
+</launch>

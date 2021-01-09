@@ -1,27 +1,48 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="range" default="5.0"/>
+    <arg name="range" default="10.0"/>
     <arg name="grid_num" default="50"/>
     <arg name="flow_image_size" default="50"/>
     <arg name="hz" default="100.0"/>
     <arg name="crop" default="5"/>
     <arg name="max_corners" default="20"/>
     <arg name="quality_level" default="0.05"/>
+    <!-- <arg name="quality_level" default="0.0001"/> -->
     <arg name="min_distance" default="5.0"/>
-    <arg name="win_size" default="4"/>
+    <arg name="win_size" default="10"/>
     <arg name="max_count" default="5"/>
     <arg name="is_dense" default="false"/>
+<<<<<<< HEAD
     <arg name="frame_id" default="odom"/>
     <arg name="child_frame_id" default="base_link"/>
     <arg name="step_border" default="2"/>
+=======
+    <arg name="is_draw_flow_line" default="false"/>
+    <arg name="save_data_num" default="1"/>
+    <arg name="frame_id" default="odom"/>
+    <arg name="child_frame_id" default="base_link"/>
+    <arg name="step_border" default="2"/>
+    <arg name="thickness" default="2"/>
+>>>>>>> 1900a37293c33a3fc482be2980bd635e3070a68a
 
 	<param name="use_sim_time" value="false"/>
+
+	<!-- <node pkg="bev_converter" type="ground_truth_odom_publisher" name="ground_truth_odom_publisher"> -->
+	<!-- </node> -->
+	<node pkg="bev_converter" type="raycast_publisher" name="raycast_publisher" output="screen">
+		<param name="WIDTH" value="$(arg range)" type="double"/>
+		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
+		<param name="Hz" value="$(arg hz)" type="double"/>
+		<param name="RAY_NUM" value="180" type="int"/>
+		<param name="IS_USE_VELODYNE" value="true" type="bool"/>
+	</node>
 
 	<node pkg="bev_converter" type="bev_converter" name="bev_converter">
 		<param name="RANGE" value="$(arg range)" type="double"/>
 		<param name="GRID_NUM" value="$(arg grid_num)" type="int"/>
 		<param name="Hz" value="$(arg hz)" type="double"/>
 		<param name="CHILD_FRAME_ID" value="$(arg child_frame_id)" type="str"/>
+		<!-- <remap from="/odom" to="/ground_truth/odom"/> -->
 	</node>
 
 	<node pkg="bev_converter" type="bev_flow_estimator" name="bev_flow_estimator" output="screen">
@@ -36,19 +57,27 @@
 		<param name="WIN_SIZE" value="$(arg win_size)" type="int"/>
 		<param name="MAX_COUNT" value="$(arg max_count)" type="int"/>
 		<param name="IS_DENSE" value="$(arg is_dense)" type="bool"/>
+<<<<<<< HEAD
+=======
+		<param name="IS_DRAW_FLOW_LINE" value="$(arg is_draw_flow_line)" type="bool"/>
+		<param name="SAVE_NUMBER" value="$(arg save_data_num)" type="int"/>
+>>>>>>> 1900a37293c33a3fc482be2980bd635e3070a68a
 		<param name="STEP_BORDER" value="$(arg step_border)" type="int"/>
+		<param name="THICKNESS" value="$(arg thickness)" type="int"/>
 		<param name="FRAME_ID" value="$(arg frame_id)" type="str"/>
 		<param name="CHILD_FRAME_ID" value="$(arg child_frame_id)" type="str"/>
         <!-- <rosparam command="load" file="$(find cats)/config/cats_motion_param.yaml"/> -->
+		<!-- <remap from="/odom" to="/ground_truth/odom"/> -->
 	</node>
 
-    <arg name="width" default="5.0"/>
-    <arg name="resolution" default="0.1"/>
-    <arg name="occupancy_threshold" default="0.2"/>
+    <arg name="width" default="10.0"/>
+    <arg name="resolution" default="0.20"/>
+    <arg name="occupancy_threshold" default="0.3"/>
     <arg name="beam_num" default="720"/>
     <arg name="skip_scan_flag" default="false"/>
 
     <node pkg="dynamic_cloud_detector" type="dynamic_cloud_detector" name="dynamic_cloud_detector">
+		<!-- <remap from="odom" to="/ground_truth/odom"/> -->
         <param name="WIDTH" value="$(arg width)"/>
         <param name="RESOLUTION" value="$(arg resolution)"/>
         <param name="OCCUPANCY_THRESHOLD" value="$(arg occupancy_threshold)"/>

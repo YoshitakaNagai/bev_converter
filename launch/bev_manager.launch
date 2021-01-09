@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<launch>
+    <arg name="hz" default="100.0"/>
+    <arg name="border_time" default="5.0"/>
+    <arg name="count_time" default="5"/>
+    <arg name="launch_path" default="/home/amsl/ros_catkin_ws/src/bev_converter/launch/gazebo_bev_flow_estimator.launch"/>
+    <arg name="bin_path" default="/opt/ros/melodic/bin/roslaunch"/>
+
+	<node pkg="bev_converter" type="reboot_manager" name="reboot_manager">
+		<param name="Hz" value="$(arg hz)" type="double"/>
+		<param name="BORDER_TIME" value="$(arg border_time)" type="double"/>
+		<param name="COUNT_TIME" value="$(arg count_time)" type="int"/>
+		<param name="LAUNCH_PATH" value="$(arg launch_path)" type="str"/>
+		<param name="BIN_PATH" value="$(arg bin_path)" type="str"/>
+		<!-- <remap from="/odom" to="/ground_truth/odom"/> -->
+	</node>
+
+</launch>

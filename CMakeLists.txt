@@ -159,6 +159,21 @@ add_library(libbev_converter
 add_library(libbev_flow_estimator
   src/bev_flow_estimator.cpp
 )
+add_library(libbev_flow_estimator_compact
+  src/bev_flow_estimator_compact.cpp
+)
+add_library(libraycast_publisher
+  src/raycast_publisher.cpp
+)
+add_library(libtemporal_bev_publisher
+  src/temporal_bev_publisher.cpp
+)
+add_library(libtemporal_dynamic_bev_publisher
+  src/temporal_dynamic_bev_publisher.cpp
+)
+# add_library(libreboot_manager
+#   src/reboot_manager.cpp
+# )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -166,14 +181,25 @@ add_library(libbev_flow_estimator
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(libbev_converter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(libbev_flow_estimator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(libbev_flow_estimator_compact ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(libraycast_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(libtemporal_bev_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(libtemporal_dynamic_bev_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(libreboot_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(bev_converter src/bev_converter_node.cpp src/bev_converter.cpp)
 add_executable(bev_flow_estimator src/bev_flow_estimator_node.cpp src/bev_flow_estimator.cpp src/bev_image_generator.cpp)
+add_executable(bev_flow_estimator_compact src/bev_flow_estimator_compact_node.cpp src/bev_flow_estimator_compact.cpp)
+add_executable(raycast_publisher src/raycast_publisher_node.cpp src/raycast_publisher.cpp)
+add_executable(temporal_bev_publisher src/temporal_bev_publisher_node.cpp src/temporal_bev_publisher.cpp)
+add_executable(temporal_dynamic_bev_publisher src/temporal_dynamic_bev_publisher_node.cpp src/temporal_dynamic_bev_publisher.cpp)
+# add_executable(reboot_manager src/reboot_manager_node.cpp src/reboot_manager.cpp)
 add_executable(pointcloud_converter src/pointcloud_converter.cpp)
 add_executable(odom_publisher src/pedsim/odom_publisher.cpp)
+add_executable(ground_truth_odom_publisher src/pedsim/ground_truth_odom_publisher.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -186,6 +212,11 @@ add_executable(odom_publisher src/pedsim/odom_publisher.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(bev_converter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(bev_flow_estimator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(bev_flow_estimator_compact ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(raycast_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(temporal_bev_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(temporal_dynamic_bev_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(reboot_manager ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node
@@ -204,11 +235,43 @@ target_link_libraries(bev_flow_estimator
     ${OpenCV_LIBS}
     libbev_flow_estimator
 )
+target_link_libraries(bev_flow_estimator_compact
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+    libbev_flow_estimator_compact
+)
+target_link_libraries(raycast_publisher
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+    libraycast_publisher
+)
+target_link_libraries(temporal_bev_publisher
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+    libtemporal_bev_publisher
+)
+target_link_libraries(temporal_dynamic_bev_publisher
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+    libtemporal_dynamic_bev_publisher
+)
+# target_link_libraries(reboot_manager
+# 	${catkin_LIBRARIES}
+#     libreboot_manager
+# )
 target_link_libraries(pointcloud_converter
 	${catkin_LIBRARIES}
 	${PCL_LIBRARIES}
 )
 target_link_libraries(odom_publisher
+	${catkin_LIBRARIES}
+	${PCL_LIBRARIES}
+)
+target_link_libraries(ground_truth_odom_publisher
 	${catkin_LIBRARIES}
 	${PCL_LIBRARIES}
 )

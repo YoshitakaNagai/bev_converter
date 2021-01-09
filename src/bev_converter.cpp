@@ -130,7 +130,8 @@ void BEVConverter::converter(void)
         /* int index = iy + ix * (RANGE / grid_size); */
         if((0 <= ix && ix < GRID_NUM) && (0 <= iy && iy < GRID_NUM)){
 			/* std::cout << "[ix, iy] = [" << ix << ", " << iy << "]" << std::endl; */
-            bev_grid.data[index] = (int)Occupied;
+            // bev_grid.data[index] = (int)Occupied;
+            bev_grid.data[index] += 1;
         }
     }
 }
