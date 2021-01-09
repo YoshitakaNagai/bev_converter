@@ -7,7 +7,7 @@
     <arg name="grid_num" default="100"/>
     <arg name="brightness_decreas_rate" default="0.90"/>
 	<!-- storage -->
-    <arg name="step_memory_size" default="5"/>
+    <arg name="step_memory_size" default="8"/>
 	<!-- frame -->
     <arg name="frame_id" default="odom"/>
     <arg name="child_frame_id" default="base_footprint"/>
@@ -20,7 +20,7 @@
 
 	<!-- dynamic_cloud_detector -->
     <arg name="dynamic_cloud_detector_resolution" default="0.5"/>
-    <arg name="occupancy_threshold" default="0.3"/>
+    <arg name="occupancy_threshold" default="0.1"/>
     <arg name="beam_num" default="720"/>
     <arg name="skip_scan_flag" default="false"/>
 

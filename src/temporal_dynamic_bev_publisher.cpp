@@ -22,7 +22,8 @@ TemporalDynamicBEV::TemporalDynamicBEV(void)
 	dynamic_pointcloud_subscriber = nh.subscribe("/cloud/dynamic", 10, &TemporalDynamicBEV::dynamic_pointcloud_callback, this);
 	scan_subscriber = nh.subscribe("/scan", 10, &TemporalDynamicBEV::scan_callback, this);
 	odom_subscriber = nh.subscribe("/odom", 10, &TemporalDynamicBEV::odom_callback, this);
-	episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalDynamicBEV::episode_flag_callback, this);
+	// episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalDynamicBEV::episode_flag_callback, this);
+	episode_flag_subscriber = nh.subscribe("/episode_watcher/is_finish_episode", 10, &TemporalDynamicBEV::episode_flag_callback, this);
 
 	temporal_bev_image_publisher = nh.advertise<sensor_msgs::Image>("/bev/temporal_bev_image", 10);
 }
@@ -124,17 +125,17 @@ void TemporalDynamicBEV::initializer(void)
 
 
 
-	if(episode_flag_callback_flag){
-		std::cout << "is_finish_episode : " << is_finish_episode << std::endl;
-		if(is_finish_episode){
-			pointcloud_list.clear();
-			std::cout << "clear!!" << std::endl;
-
-			for(int i = 0; i < STEP_MEMORY_SIZE; i++){
-				dynamic_image_list[i] = format_image.clone();
-			}
-		}
-	}
+	// if(episode_flag_callback_flag){
+	// 	std::cout << "is_finish_episode : " << is_finish_episode << std::endl;
+	// 	if(is_finish_episode){
+	// 		pointcloud_list.clear();
+	// 		std::cout << "clear!!" << std::endl;
+    //
+	// 		for(int i = 0; i < STEP_MEMORY_SIZE; i++){
+	// 			dynamic_image_list[i] = format_image.clone();
+	// 		}
+	// 	}
+	// }
 
 	
 	// if(dynamic_image_list.size() > STEP_MEMORY_SIZE){
@@ -242,6 +243,15 @@ void TemporalDynamicBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &m
 {
 	is_finish_episode = msg->data;
 
+	if(is_finish_episode){
+		pointcloud_list.clear();
+		std::cout << "clear!!" << std::endl;
+
+		for(int i = 0; i < STEP_MEMORY_SIZE; i++){
+			dynamic_image_list[i] = format_image.clone();
+		}
+	}
+
 	episode_flag_callback_flag = true;
 }
 
@@ -254,9 +264,8 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalDynamicBEV::pointcloud_transformer(
 {
 	PointCloudIPtr pcl_return_pointcloud{new PointCloudI};
 
-	// Eigen::Vector3d d_move = displacement_calculator(now_position, last_position);
-	Eigen::Vector3d d_move = displacement_calculator(current_position, last_position);
-	tf::Quaternion relative_rotation = last_pose * current_pose.inverse();
+	Eigen::Vector3d d_move = displacement_calculator(now_position, last_position);
+	tf::Quaternion relative_rotation = last_pose * now_pose.inverse();
 	relative_rotation.normalize();
 	Eigen::Quaternionf rotation(relative_rotation.w(), relative_rotation.x(), relative_rotation.y(), relative_rotation.z());
 	tf::Quaternion q_global_move(-d_move.x(), -d_move.y(), -d_move.z(), 0.0);
