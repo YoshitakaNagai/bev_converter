@@ -1,6 +1,6 @@
-#include "bev_converter/temporal_bev_publisher.h"
+#include "bev_converter/temporal_dynamic_bev_publisher.h"
 
-TemporalBEV::TemporalBEV(void)
+TemporalDynamicBEV::TemporalDynamicBEV(void)
 : nh("~")
 {
 	// ros loop rate
@@ -18,16 +18,17 @@ TemporalBEV::TemporalBEV(void)
 	nh.param("SCAN_ERROR_THRESHOLD", SCAN_ERROR_THRESHOLD, {1.0});
 	nh.param("IS_USE_2D_LIDAR", IS_USE_2D_LIDAR, {true});
 
-	obstacle_pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &TemporalBEV::pointcloud_callback, this);
-	scan_subscriber = nh.subscribe("/scan", 10, &TemporalBEV::scan_callback, this);
-	odom_subscriber = nh.subscribe("/odom", 10, &TemporalBEV::odom_callback, this);
-	episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalBEV::episode_flag_callback, this);
+	obstacle_pointcloud_subscriber = nh.subscribe("/velodyne_obstacles", 10, &TemporalDynamicBEV::pointcloud_callback, this);
+	dynamic_pointcloud_subscriber = nh.subscribe("/cloud/dynamic", 10, &TemporalDynamicBEV::dynamic_pointcloud_callback, this);
+	scan_subscriber = nh.subscribe("/scan", 10, &TemporalDynamicBEV::scan_callback, this);
+	odom_subscriber = nh.subscribe("/odom", 10, &TemporalDynamicBEV::odom_callback, this);
+	episode_flag_subscriber = nh.subscribe("/is_start_episode", 10, &TemporalDynamicBEV::episode_flag_callback, this);
 
 	temporal_bev_image_publisher = nh.advertise<sensor_msgs::Image>("/bev/temporal_bev_image", 10);
 }
 
 
-void TemporalBEV::executor()
+void TemporalDynamicBEV::executor()
 {
 	formatter();
 	Eigen::Vector3d now_position = Eigen::Vector3d::Zero();
@@ -37,7 +38,7 @@ void TemporalBEV::executor()
 
 	ros::Rate r(Hz);
 	while(ros::ok()){
-		if(pointcloud_callback_flag && odom_callback_flag){
+		if(pointcloud_callback_flag && odom_callback_flag && dynamic_pointcloud_callback_flag){
 			initializer();
 			
 			now_position = current_position;
@@ -45,21 +46,32 @@ void TemporalBEV::executor()
 			now_pose = current_pose;
 			last_pose = previous_pose;
 
-			for(int i = 0; i < pointcloud_list.size(); i++){ // Exclude the latest steps
+			int pointcloud_list_size = pointcloud_list.size();
+			cv::Mat bev_image = cv::Mat::zeros(image_size, CV_32FC1);
+			cv::Mat bev_current_image = cv::Mat::zeros(image_size, CV_32FC1);
+
+			for(int i = 0; i < pointcloud_list_size; i++){ // Exclude the latest steps
 				PointCloudIPtr pcl_tmp_pointcloud{new PointCloudI};
 				PointCloudIPtr pcl_transformed_pointcloud{new PointCloudI};
-				pcl_tmp_pointcloud = pointcloud_list[i];
+				pcl_tmp_pointcloud = pointcloud_list[i]; // only dynamic point clouds
 				pcl_transformed_pointcloud = pointcloud_transformer(pcl_tmp_pointcloud, now_position, last_position, now_pose, last_pose);
 				pointcloud_list[i] = pcl_transformed_pointcloud;
 				
 				int elapsed_step = pointcloud_list.size() - (i + 1);
-				cv::Mat bev_image = cv::Mat::zeros(image_size, CV_32FC1);
 				bev_generator(pcl_transformed_pointcloud, bev_image, elapsed_step);
-				image_list[i] = bev_image.clone();
+				if(i == pointcloud_list_size - 1){ // if current
+					*pcl_transformed_pointcloud += *pcl_current_all_pointcloud;
+					bev_generator(pcl_transformed_pointcloud, bev_current_image, elapsed_step);
+					dynamic_image_list[i] = bev_current_image.clone();
+				}else{
+					dynamic_image_list[i] = bev_image.clone();
+				}
 			}
 			
 			cv::Mat bev_temporal_image = cv::Mat::zeros(image_size, CV_32FC1);
 			temporal_bev_generator(bev_temporal_image);
+			
+			dynamic_image_list[pointcloud_list_size-1] = bev_image.clone();
 
 			cv::Mat cv_pub_image32fc1 = bev_temporal_image.clone();
 			cv::Mat cv_pub_image8uc1 = cv::Mat::zeros(image_size, CV_32FC1);
@@ -79,9 +91,10 @@ void TemporalBEV::executor()
 }
 
 
-void TemporalBEV::formatter(void)
+void TemporalDynamicBEV::formatter(void)
 {
 	pointcloud_callback_flag = false;
+	dynamic_pointcloud_callback_flag = false;
 	scan_callback_flag = false;
 	odom_callback_flag = false;
 	episode_flag_callback_flag = false;
@@ -94,14 +107,14 @@ void TemporalBEV::formatter(void)
 	pointcloud_list.resize(0);
 	pcl_2d_scan_bfr->points.resize(0);
 
-	image_list.resize(0);
+	dynamic_image_list.resize(0);
 	for(int i = 0; i < STEP_MEMORY_SIZE; i++){
-		image_list.push_back(format_image);
+		dynamic_image_list.push_back(format_image);
 	}
 }
 
 
-void TemporalBEV::initializer(void)
+void TemporalDynamicBEV::initializer(void)
 {
 	if(is_first){
 		previous_position = current_position;
@@ -118,18 +131,21 @@ void TemporalBEV::initializer(void)
 			std::cout << "clear!!" << std::endl;
 
 			for(int i = 0; i < STEP_MEMORY_SIZE; i++){
-				image_list[i] = format_image.clone();
+				dynamic_image_list[i] = format_image.clone();
 			}
 		}
 	}
 
 	
-	// if(image_list.size() > STEP_MEMORY_SIZE){
-	// 	image_list.erase(image_list.begin());
+	// if(dynamic_image_list.size() > STEP_MEMORY_SIZE){
+	// 	dynamic_image_list.erase(dynamic_image_list.begin());
 	// }
-	std::cout << "image_list.size() = " << image_list.size() << std::endl;
+	std::cout << "dynamic_image_list.size() = " << dynamic_image_list.size() << std::endl;
 
-	pcl_process_pointcloud = pcl_import_pointcloud;
+	// pcl_process_pointcloud = pcl_import_pointcloud;
+	pcl_current_all_pointcloud = pcl_import_pointcloud;
+	pcl_process_pointcloud = pcl_import_dynamic_pointcloud;
+
 
 	if(IS_USE_2D_LIDAR){
 		if(scan_callback_flag){
@@ -182,9 +198,9 @@ void TemporalBEV::initializer(void)
 }
 
 
-void TemporalBEV::pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr &msg)
+void TemporalDynamicBEV::pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr &msg)
 {
-	// std::cout << "pointcloud_callback" << std::endl;
+	// std::cout << "obstacle_pointcloud_callback" << std::endl;
 	sensor_msgs::PointCloud2 import_pointcloud_msg = *msg;
 	pcl::fromROSMsg(import_pointcloud_msg, *pcl_import_pointcloud);
 
@@ -192,7 +208,17 @@ void TemporalBEV::pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr &ms
 }
 
 
-void TemporalBEV::scan_callback(const sensor_msgs::LaserScanConstPtr &msg)
+void TemporalDynamicBEV::dynamic_pointcloud_callback(const sensor_msgs::PointCloud2ConstPtr &msg)
+{
+	// std::cout << "dynamic_pointcloud_callback" << std::endl;
+	sensor_msgs::PointCloud2 import_pointcloud_msg = *msg;
+	pcl::fromROSMsg(import_pointcloud_msg, *pcl_import_dynamic_pointcloud);
+
+	dynamic_pointcloud_callback_flag = true;
+}
+
+
+void TemporalDynamicBEV::scan_callback(const sensor_msgs::LaserScanConstPtr &msg)
 {
 	// std::cout << "pointcloud_callback" << std::endl;
 	scan_msg = *msg;
@@ -201,7 +227,7 @@ void TemporalBEV::scan_callback(const sensor_msgs::LaserScanConstPtr &msg)
 }
 
 
-void TemporalBEV::odom_callback(const nav_msgs::OdometryConstPtr &msg)
+void TemporalDynamicBEV::odom_callback(const nav_msgs::OdometryConstPtr &msg)
 {
 	current_position << msg->pose.pose.position.x,
                         msg->pose.pose.position.y,
@@ -212,7 +238,7 @@ void TemporalBEV::odom_callback(const nav_msgs::OdometryConstPtr &msg)
 }
 
 
-void TemporalBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &msg)
+void TemporalDynamicBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &msg)
 {
 	is_finish_episode = msg->data;
 
@@ -220,7 +246,7 @@ void TemporalBEV::episode_flag_callback(const std_msgs::Bool::ConstPtr &msg)
 }
 
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalBEV::pointcloud_transformer(PointCloudIPtr pcl_reference_pointcloud,
+pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalDynamicBEV::pointcloud_transformer(PointCloudIPtr pcl_reference_pointcloud,
 																		 Eigen::Vector3d now_position,
 																		 Eigen::Vector3d last_position,
 																		 tf::Quaternion now_pose,
@@ -228,8 +254,9 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalBEV::pointcloud_transformer(PointCl
 {
 	PointCloudIPtr pcl_return_pointcloud{new PointCloudI};
 
-	Eigen::Vector3d d_move = displacement_calculator(now_position, last_position);
-	tf::Quaternion relative_rotation = last_pose * now_pose.inverse();
+	// Eigen::Vector3d d_move = displacement_calculator(now_position, last_position);
+	Eigen::Vector3d d_move = displacement_calculator(current_position, last_position);
+	tf::Quaternion relative_rotation = last_pose * current_pose.inverse();
 	relative_rotation.normalize();
 	Eigen::Quaternionf rotation(relative_rotation.w(), relative_rotation.x(), relative_rotation.y(), relative_rotation.z());
 	tf::Quaternion q_global_move(-d_move.x(), -d_move.y(), -d_move.z(), 0.0);
@@ -242,7 +269,7 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr TemporalBEV::pointcloud_transformer(PointCl
 }
 
 
-Eigen::Vector3d TemporalBEV::displacement_calculator(Eigen::Vector3d now_position, Eigen::Vector3d last_position)
+Eigen::Vector3d TemporalDynamicBEV::displacement_calculator(Eigen::Vector3d now_position, Eigen::Vector3d last_position)
 {
 	Eigen::Vector3d return_d_move = now_position - last_position;
 
@@ -250,7 +277,7 @@ Eigen::Vector3d TemporalBEV::displacement_calculator(Eigen::Vector3d now_positio
 }
 
 
-void TemporalBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat &dst_image, int elapsed_step)
+void TemporalDynamicBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat &dst_image, int elapsed_step)
 {
 	float brightness = std::pow((float)BRIGHTNESS_DECREAS_RATE, elapsed_step);
 
@@ -268,15 +295,15 @@ void TemporalBEV::bev_generator(PointCloudIPtr pcl_reference_pointcloud, cv::Mat
 }
 
 
-void TemporalBEV::temporal_bev_generator(cv::Mat &dst_image)
+void TemporalDynamicBEV::temporal_bev_generator(cv::Mat &dst_image)
 {
 	for(int col = 0; col < GRID_NUM; col++){
 		for(int row = 0; row < GRID_NUM; row++){
 			float max_brightness = 0.0;
-			for(int i = 0; i < image_list.size(); i++){
+			for(int i = 0; i < dynamic_image_list.size(); i++){
 				cv::Mat tmp_image = cv::Mat::zeros(image_size, CV_32FC1);
 				cv::Mat reference_image = cv::Mat::zeros(image_size, CV_32FC1);
-				tmp_image = image_list[i];
+				tmp_image = dynamic_image_list[i];
 				reference_image = tmp_image.clone();
 				float reference_brightness = reference_image.at<float>(row, col);
 				if(reference_brightness > max_brightness){

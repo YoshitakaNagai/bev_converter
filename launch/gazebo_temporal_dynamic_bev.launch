@@ -5,7 +5,7 @@
 	<!-- grid -->
     <arg name="width" default="5.0"/>
     <arg name="grid_num" default="100"/>
-    <arg name="brightness_decreas_rate" default="0.5"/>
+    <arg name="brightness_decreas_rate" default="0.90"/>
 	<!-- storage -->
     <arg name="step_memory_size" default="5"/>
 	<!-- frame -->
@@ -17,6 +17,12 @@
     <arg name="robot_rsize" default="0.13"/>
     <arg name="scan_error_threshold" default="100.0"/>
     <arg name="is_use_2d_lidar" default="true"/>
+
+	<!-- dynamic_cloud_detector -->
+    <arg name="dynamic_cloud_detector_resolution" default="0.5"/>
+    <arg name="occupancy_threshold" default="0.3"/>
+    <arg name="beam_num" default="720"/>
+    <arg name="skip_scan_flag" default="false"/>
 
 	<param name="use_sim_time" value="false"/>
 
@@ -37,6 +43,14 @@
 		<param name="IS_USE_2D_LiDAR" value="$(arg is_use_2d_lidar)" type="bool"/>
 	</node>
 
+    <node pkg="dynamic_cloud_detector" type="dynamic_cloud_detector" name="dynamic_cloud_detector">
+        <param name="WIDTH" value="$(arg width)"/>
+        <param name="RESOLUTION" value="$(arg dynamic_cloud_detector_resolution)"/>
+        <param name="OCCUPANCY_THRESHOLD" value="$(arg occupancy_threshold)"/>
+        <param name="BEAM_NUM" value="$(arg beam_num)"/>
+        <param name="SKIP_SCAN_FLAG" value="$(arg skip_scan_flag)"/>
+		<!-- <remap from="odom" to="/ground_truth/odom"/> -->
+    </node>
 
 	<include file="$(find velodyne_height_map)/launch/amsl_velodyne_heightmap.launch"/>
 	<include file="$(find velodyne_pointcloud)/launch/32e_points.launch"/>
