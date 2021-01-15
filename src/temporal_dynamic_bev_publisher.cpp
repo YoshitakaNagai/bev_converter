@@ -125,6 +125,11 @@ void TemporalDynamicBEV::initializer(void)
 		is_first = false;
 	}
 
+	format_image = cv::Mat::zeros(image_size, CV_32FC1);
+	dynamic_image_list.resize(0);
+	for(int i = 0; i < STEP_MEMORY_SIZE; i++){
+		dynamic_image_list = format_image.clone();
+	}
 
 
 	// if(episode_flag_callback_flag){
