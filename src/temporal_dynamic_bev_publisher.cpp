@@ -26,6 +26,9 @@ TemporalDynamicBEV::TemporalDynamicBEV(void)
 	episode_flag_subscriber = nh.subscribe("/episode_watcher/is_finish_episode", 10, &TemporalDynamicBEV::episode_flag_callback, this);
 
 	temporal_bev_image_publisher = nh.advertise<sensor_msgs::Image>("/bev/temporal_bev_image", 10);
+
+	// pause_client = nh.serviceClient<bev_converter::Empty>("gazebo/pause_physics");
+	// unpause_client = nh.serviceClient<bev_converter::Empty>("gazebo/unpause_physics");
 }
 
 
@@ -34,6 +37,7 @@ void TemporalDynamicBEV::executor()
 	formatter();
 	Eigen::Vector3d now_position = Eigen::Vector3d::Zero();
 	Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
+	cv::Mat zero_image = cv::Mat::zeros(image_size, CV_32FC1);
 	tf::Quaternion now_pose;
 	tf::Quaternion last_pose;
 
@@ -42,6 +46,13 @@ void TemporalDynamicBEV::executor()
 		if(pointcloud_callback_flag && odom_callback_flag && dynamic_pointcloud_callback_flag){
 			initializer();
 			
+			// if(pause_client.call(srv)){
+			// 	std::cout << "gazebo : pause" << std::endl;
+			// }else{
+			// 	ROS_ERROR("Failed to call service gazebo/pause_physics");
+			// 	return 1;
+			// }
+
 			now_position = current_position;
 			last_position = previous_position;
 			now_pose = current_pose;
@@ -51,30 +62,27 @@ void TemporalDynamicBEV::executor()
 			cv::Mat bev_image = cv::Mat::zeros(image_size, CV_32FC1);
 			cv::Mat bev_current_image = cv::Mat::zeros(image_size, CV_32FC1);
 
-			for(int i = 0; i < pointcloud_list_size; i++){ // Exclude the latest steps
+			for(int i = 1; i < pointcloud_list_size; i++){ // Exclude the latest steps
 				PointCloudIPtr pcl_tmp_pointcloud{new PointCloudI};
 				PointCloudIPtr pcl_transformed_pointcloud{new PointCloudI};
-				pcl_tmp_pointcloud = pointcloud_list[i]; // only dynamic point clouds
+				pcl_tmp_pointcloud = pointcloud_list[i-1]; // only dynamic point clouds
 				pcl_transformed_pointcloud = pointcloud_transformer(pcl_tmp_pointcloud, now_position, last_position, now_pose, last_pose);
-				pointcloud_list[i] = pcl_transformed_pointcloud;
+				pointcloud_list[i-1] = pcl_transformed_pointcloud;
 				
-				bev_image = cv::Mat::zeros(image_size, CV_32FC1);
-				bev_current_image = cv::Mat::zeros(image_size, CV_32FC1);
-				int elapsed_step = pointcloud_list.size() - (i + 1);
+				bev_image = zero_image.clone();
+				bev_current_image = zero_image.clone();
+				int elapsed_step = pointcloud_list.size() - ((i-1) + 1);
 				bev_generator(pcl_transformed_pointcloud, bev_image, elapsed_step);
-				if(i == pointcloud_list_size - 1){ // if current
-					*pcl_transformed_pointcloud += *pcl_current_all_pointcloud;
-					bev_generator(pcl_transformed_pointcloud, bev_current_image, elapsed_step);
-					dynamic_image_list[i] = bev_current_image.clone();
-				}else{
-					dynamic_image_list[i] = bev_image.clone();
-				}
+				dynamic_image_list[i-1] = bev_image.clone();
 			}
 			
-			cv::Mat bev_temporal_image = cv::Mat::zeros(image_size, CV_32FC1);
+			bev_generator(pcl_current_all_pointcloud, bev_current_image, 0);
+			dynamic_image_list[pointcloud_list_size-1] = bev_current_image.clone();
+
+			cv::Mat bev_temporal_image = zero_image.clone();
 			temporal_bev_generator(bev_temporal_image);
 			
-			dynamic_image_list[pointcloud_list_size-1] = bev_image.clone();
+			// dynamic_image_list[pointcloud_list_size-1] = bev_image.clone();
 
 			cv::Mat cv_pub_image32fc1 = bev_temporal_image.clone();
 			cv::Mat cv_pub_image8uc1 = cv::Mat::zeros(image_size, CV_32FC1);
@@ -82,6 +90,14 @@ void TemporalDynamicBEV::executor()
 			cv::rotate(cv_pub_image8uc1, cv_pub_image8uc1, cv::ROTATE_90_CLOCKWISE);
 			cv::flip(cv_pub_image8uc1, cv_pub_image8uc1, 1);
 			sensor_msgs::ImagePtr image_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", cv_pub_image8uc1).toImageMsg();
+
+			// if (unpause_client.call(srv)){
+			// 	std::cout << "gazebo : unpause" << std::endl;
+			// }else{
+			// 	ROS_ERROR("Failed to call service gazebo/unpause_physics");
+			// 	return 1;
+			// }
+
 			temporal_bev_image_publisher.publish(image_msg);
 
 			previous_position = now_position;
@@ -318,6 +334,7 @@ void TemporalDynamicBEV::temporal_bev_generator(cv::Mat &dst_image)
 	for(int col = 0; col < GRID_NUM; col++){
 		for(int row = 0; row < GRID_NUM; row++){
 			float max_brightness = 0.0;
+			dst_image.at<float>(row, col) = max_brightness;
 			for(int i = 0; i < dynamic_image_list.size(); i++){
 				cv::Mat tmp_image = cv::Mat::zeros(image_size, CV_32FC1);
 				cv::Mat reference_image = cv::Mat::zeros(image_size, CV_32FC1);

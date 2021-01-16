@@ -30,6 +30,7 @@
 #include "Eigen/Dense"
 #include "Eigen/LU"
 
+// #include "bev_converter/Empty.h"
 
 class TemporalDynamicBEV
 {
@@ -80,6 +81,9 @@ class TemporalDynamicBEV
 		ros::Subscriber scan_subscriber;
 		ros::Subscriber episode_flag_subscriber;
 		ros::Publisher temporal_bev_image_publisher;
+		// ros::ServiceClient pause_client;
+		// ros::ServiceClient unpause_client;
+		// bev_converter::Empty srv;
 
 		sensor_msgs::LaserScan scan_msg;
 

@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
 	pcl_ros
     cv_bridge
 	image_transport
-    # message_generation
+    message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -70,15 +70,14 @@ include_directories(${Eigen_INCLUDE_DIRS})
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-#add_message_files(
+# add_message_files(
 #   FILES
-#)
+# )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
-#   Service1.srv
-#   Service2.srv
+#   Empty.srv
 # )
 
 ## Generate actions in the 'action' folder
@@ -89,10 +88,10 @@ include_directories(${Eigen_INCLUDE_DIRS})
 # )
 
 ## Generate added messages and services with any dependencies listed here
-#generate_messages(
+# generate_messages(
 #  DEPENDENCIES
 #  std_msgs  # Or other packages containing msgs
-#)
+# )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -126,7 +125,7 @@ include_directories(${Eigen_INCLUDE_DIRS})
 catkin_package(
  INCLUDE_DIRS include
  CATKIN_DEPENDS roscpp rospy std_msgs
- #message_runtime
+ message_runtime
  #DEPENDS system_lib
 )
 
